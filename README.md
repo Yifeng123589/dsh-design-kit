@@ -5,7 +5,7 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.3`
+- 版本：`0.1.4`
 - DSH 兼容：0.2.1-rc.5（真实宿主 A–E 通过；0.1.x 未测）
 - 一个技能入口：`design-kit`
 - 10 个工具：`design_lint` / `design_tokens` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
@@ -16,7 +16,7 @@
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.3.zip
+dsh-design-kit-runtime-v0.1.4.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：

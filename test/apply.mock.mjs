@@ -712,6 +712,12 @@ await check('工具参数 schema 合法：required 必须是数组（真实宿�
   }
 });
 
+await check('shortlist CLI：decide 推进 nextRound，add 按实际轮次编号', () => {
+  const cli = readFileSync(join(skillDir, 'probe-kit', 'shortlist.mjs'), 'utf8');
+  assert(cli.includes('state.nextRound = (rounds.rounds ?? []).length + 1;'), 'decide 后必须推进 state.nextRound');
+  assert(cli.includes('const expectedRound = (rounds.rounds?.length ?? 0) + 1;'), 'add 必须按实际轮次编号，不能依赖旧 nextRound');
+});
+
 await check('dispose 调用全部注销器且不抛异常', async () => {
   const { ctx, registered } = makeCtx();
   apply(ctx, { timeoutMs: 5000 });

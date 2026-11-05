@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+### Fixed
+
+- `shortlist decide` 现在会把 `state.nextRound` 推进到已生成轮数 + 1；修复下一轮 `add` 被错误编号为旧轮、覆盖原候选的问题。
+- `shortlist add` 改为按实际轮次编号并提示状态漂移，不再信任可能过期的 `nextRound`。
+
 ## 0.1.3
 
 ### Fixed

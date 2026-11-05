@@ -3,7 +3,7 @@
 ## 本地自动化（零依赖）
 
 ```bash
-npm test                                  # mock 注册/契约/路径/令牌/状态机 32 项
+npm test                                  # mock 注册/契约/路径/令牌/状态机 33 项
 node test/shortlist-ui-contract.test.mjs  # UI↔CLI 契约 4 项
 node test/docs-consistency.mjs            # 文档工具计数 4 项
 node skills/design-kit/probe-kit/test/smoke.mjs       # 11 项

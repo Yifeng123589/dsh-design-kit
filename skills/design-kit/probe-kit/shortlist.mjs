@@ -378,7 +378,11 @@ function cmdAdd(args) {
   if (decidedRounds < (rounds.rounds?.length ?? 0)) {
     throw new CliError(`第 ${decidedRounds + 1} 轮还没有 decide，先处理完上一轮再生成下一轮`, 1);
   }
-  const round = state.nextRound;
+  const expectedRound = (rounds.rounds?.length ?? 0) + 1;
+  if (state.nextRound !== expectedRound) {
+    console.warn(`注意：state.nextRound=${state.nextRound} 与已生成轮次不一致，按实际轮次修正为 ${expectedRound}。`);
+  }
+  const round = expectedRound;
   if (round > cap.maxRounds) {
     throw new CliError(`已达 ${cap.maxRounds} 轮上限（最多 ${cap.maxRounds * cap.perRound} 个候选），不能再加候选`, 1);
   }
@@ -554,6 +558,8 @@ function cmdDecide(args) {
 
   const generated = generatedCount(rounds);
   const undecidedRounds = (rounds.rounds ?? []).filter((entry) => !state.decisionsByRound?.[entry.round]).length;
+  // 关键：decide 后必须推进到下一轮；否则下一次 add 会把新轮次又写成旧轮号，覆盖原候选。
+  state.nextRound = (rounds.rounds ?? []).length + 1;
   if (state.pending.length >= cap.maxPending) {
     const page = renderFinalPage({ runDir, brief, state, rounds, cap });
     state.finalPageSha = page.sha;

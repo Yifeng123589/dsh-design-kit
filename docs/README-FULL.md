@@ -2,11 +2,11 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.3`
+- 版本：`0.1.4`
 - 技能：`design-kit`（1 个）
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
 - 客户端：DSH Web 端会把 `probe_shortlist_preview` 直接渲染成**对话内三栏 iframe 预览**，选择后自动发回结构化动作
-- 当前证据：**真实 DSH 0.2.1-rc.5 验收 A–E 全通过**（design_lint 100 分、deck_check 0 error、deck_export 8 页、deck_render 8 PNG + missingFonts=[]、防覆盖生效）；mock 32/32、包内 smoke 11/11、包内 regression 10/10、axis-lock 5/5、UI↔CLI 契约 4/4；四轮独立 QA 无 Blocker
+- 当前证据：**真实 DSH 0.2.1-rc.5 验收 A–E 全通过**（design_lint 100 分、deck_check 0 error、deck_export 8 页、deck_render 8 PNG + missingFonts=[]、防覆盖生效）；mock 33/33、包内 smoke 11/11、包内 regression 10/10、axis-lock 5/5、UI↔CLI 契约 4/4；四轮独立 QA 无 Blocker
 
 ---
 
@@ -301,7 +301,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 
 ```bash
 node sync-kit.mjs          # 从 ../ui-craft 与 ../probe-kit 同步实现/参考/证据
-node test/apply.mock.mjs   # 假 ctx 注册测试（32 项）
+node test/apply.mock.mjs   # 假 ctx 注册测试（33 项）
 node test/shortlist-ui-contract.test.mjs  # UI↔CLI 契约（4 项）
 node skills/design-kit/probe-kit/test/axis-lock.test.mjs  # A4 锁验证/假轴 5 项
 node test/docs-consistency.mjs  # 工具计数/文档同源检查
@@ -315,7 +315,7 @@ node skills/design-kit/probe-kit/test/regression.test.mjs  # 包内回归（10/1
   - `fixtures`：测试、真实回合证据与回归夹具；
   - `docs`：验收、QA、粗选/精调协议与参考；
   - `dist/RELEASE-README.md` + `SHA256SUMS.txt` 列出三件的大小与哈希；
-  - 兼容旧文件名 `dsh-design-kit-v0.1.3.zip` 与 runtime 内容相同；npm tarball 也是 runtime-only。
+  - 兼容旧文件名 `dsh-design-kit-v0.1.4.zip` 与 runtime 内容相同；npm tarball 也是 runtime-only。
 - 安装只用 runtime；fixtures/docs 不要装进 DSH。
 - 手写区：`skills/design-kit/SKILL.md`、`skills/design-kit/references/deck-handoff.md`、`skills/design-kit/deck/export_shim.py`；同步区不要手改，改源目录后重新 sync。
 - 同步清单：`skills/design-kit/.sync-manifest.json`（ui-craft 17 / probe-kit 40 / references 2）。
