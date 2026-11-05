@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>山径书店</title>
+<style>
+  /* 受控内容模板：12 个世界共用同一份内容与骨架，只替换模板占位符。
+     固定内容：店名、一句话、3 条书单条目、一个主按钮、演示页脚。视口 360×480。
+     纯 CSS 装饰：无图片、无 SVG、无 data URI、无外部字体、无网络。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet {
+    position: relative;
+    min-height: 100%;
+    padding: 22px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+    background: var(--surface);
+    border-radius: var(--radius);
+  }
+
+  .masthead { display: flex; flex-direction: column; gap: 6px; }
+  .shop { margin: 0; font-family: var(--font-head); font-size: 30px; font-weight: 700; line-height: 1.12; }
+  .tagline { margin: 0; max-inline-size: 24em; font-size: 13px; line-height: 1.7; color: var(--muted); }
+
+  .shelf { display: flex; flex-direction: column; gap: 12px; }
+  .list { margin: 0; padding: 0; list-style: none; display: grid; }
+  .item {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .item:last-child { border-bottom: 1px solid var(--rule); }
+  .num { font-size: 11px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .book { font-size: 14px; font-weight: 500; line-height: 1.45; }
+  .meta { font-size: 11px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+
+  .cta {
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 16px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .foot { margin: auto 0 0; padding-top: 10px; font-size: 10px; line-height: 1.4; color: var(--muted); }
+
+  /* 5 个布局类：只用 :where() 压低优先级，方便每个世界在 DECOR_CSS 里覆盖。
+     布局一：十二列账本式，左齐，横向细线。 */
+  :where(body.layout-grid) .sheet {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 6px;
+    row-gap: 0;
+    padding: 20px 16px 14px;
+  }
+  :where(body.layout-grid) .masthead { grid-column: 1 / -1; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+  :where(body.layout-grid) .shelf { grid-column: 1 / -1; display: flex; flex-direction: column; padding-top: 12px; }
+  :where(body.layout-grid) .list { width: 100%; }
+  :where(body.layout-grid) .cta { width: 66%; margin-top: 14px; }
+  :where(body.layout-grid) .foot { grid-column: 1 / -1; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--rule); }
+
+  /* 布局二：居中竖排，宽间距，去掉横线。 */
+  :where(body.layout-stack) .sheet { align-items: center; justify-content: center; gap: 22px; padding: 40px 28px 28px; text-align: center; }
+  :where(body.layout-stack) .masthead { align-items: center; }
+  :where(body.layout-stack) .tagline { max-inline-size: 17em; }
+  :where(body.layout-stack) .shelf { width: 100%; gap: 20px; }
+  :where(body.layout-stack) .list { gap: 6px; }
+  :where(body.layout-stack) .item { grid-template-columns: 1fr; justify-items: center; gap: 0; padding: 0; border-top: 0; }
+  :where(body.layout-stack) .item:last-child { border-bottom: 0; }
+  :where(body.layout-stack) .meta { white-space: normal; }
+  :where(body.layout-stack) .num { font-size: 10px; }
+  :where(body.layout-stack) .cta { width: auto; min-width: 208px; align-self: center; }
+  :where(body.layout-stack) .foot { margin: 0; text-align: center; }
+
+  /* 布局三：报纸式居中报头、通栏双线、密排单栏。 */
+  :where(body.layout-editorial) .sheet { padding: 22px 24px 16px; gap: 16px; }
+  :where(body.layout-editorial) .masthead { align-items: center; text-align: center; padding: 10px 0 12px; border-top: 3px double var(--ink); border-bottom: 1px solid var(--ink); }
+  :where(body.layout-editorial) .shop { font-size: 34px; }
+  :where(body.layout-editorial) .tagline { max-inline-size: 22em; }
+  :where(body.layout-editorial) .shelf { gap: 14px; }
+  :where(body.layout-editorial) .item { padding: 6px 0; }
+  :where(body.layout-editorial) .cta { background: transparent; color: var(--ink); border: 1px solid var(--ink); border-radius: 0; }
+  :where(body.layout-editorial) .foot { border-top: 1px solid var(--rule); padding-top: 8px; }
+
+  /* 布局四：压顶巨型标题、底部压缩信息、通栏动作。 */
+  :where(body.layout-poster) .sheet { padding: 26px 22px 18px; gap: 0; }
+  :where(body.layout-poster) .shop { font-size: 54px; line-height: 0.98; max-inline-size: 5em; }
+  :where(body.layout-poster) .tagline { margin-top: 10px; max-inline-size: 20em; }
+  :where(body.layout-poster) .shelf { margin-top: auto; padding-top: 16px; }
+  :where(body.layout-poster) .item { padding: 5px 0; border-top: 2px solid var(--ink); }
+  :where(body.layout-poster) .item:last-child { border-bottom: 2px solid var(--ink); }
+  :where(body.layout-poster) .cta { margin-top: 16px; min-height: 52px; font-size: 16px; }
+  :where(body.layout-poster) .foot { margin: 12px 0 0; }
+
+  /* 布局五：浮起卡纸、外底色、圆角与阴影。 */
+  body:where(.layout-card) { display: grid; place-items: center; padding: 22px 18px; }
+  :where(body.layout-card) .sheet { min-height: 0; width: 100%; gap: 16px; padding: 24px 20px 18px; border: 1px solid var(--rule); border-radius: calc(var(--radius) + 6px); box-shadow: 0 14px 34px rgb(30 24 16 / 0.16); }
+  :where(body.layout-card) .item { padding: 6px 0; }
+  :where(body.layout-card) .foot { margin-top: 4px; }
+
+  {{DECOR_CSS}}
+</style>
+</head>
+<body class="{{LAYOUT_CLASS}}">
+  <div class="sheet {{DECOR_CLASSES}}">
+    <header class="masthead">
+      <h1 class="shop">山径书店</h1>
+      <p class="tagline">在老街二楼，只卖走得动路的书。</p>
+    </header>
+    <main class="shelf">
+      <ul class="list">
+        <li class="item"><span class="num">01</span><span class="book">《山中最后一季》</span><span class="meta">自然 · 现货</span></li>
+        <li class="item"><span class="num">02</span><span class="book">《山径食谱》</span><span class="meta">生活 · 预订</span></li>
+        <li class="item"><span class="num">03</span><span class="book">《夜行笔记》</span><span class="meta">文学 · 现货</span></li>
+      </ul>
+      <button class="cta" type="button">查看本周书单</button>
+    </main>
+    <p class="foot">演示内容，非真实书店</p>
+  </div>
+</body>
+</html>

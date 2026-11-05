@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify
+        run: |
+          node test/apply.mock.mjs
+          node test/shortlist-ui-contract.test.mjs
+          node test/docs-consistency.mjs
+          node skills/design-kit/probe-kit/test/smoke.mjs
+          node skills/design-kit/probe-kit/test/regression.test.mjs
+          node skills/design-kit/probe-kit/test/axis-lock.test.mjs
+
+      - name: Build assets
+        run: |
+          node scripts/release.mjs
+          node test/release-check.mjs
+          npm pack --pack-destination dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*.tgz
+            dist/SHA256SUMS.txt
+            dist/RELEASE-README.md

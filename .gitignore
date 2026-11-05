@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tgz
+*.log
+.DS_Store
+.tmp-*
+skill-runs/
+shortlist-runs/
+runs/
+probe-kit-ledger/
+deck-render/
+
+# 仅 monorepo 源仓库使用的同步工具，不随插件仓发布
+sync-kit.mjs

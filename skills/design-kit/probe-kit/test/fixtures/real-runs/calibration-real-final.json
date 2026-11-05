@@ -1,0 +1,38 @@
+{
+  "schema": "calibration/1",
+  "dim": "accent_saturation",
+  "value": 0.421875,
+  "formatted": "42%",
+  "source": {
+    "runId": "r4-demo-1-r2-r3",
+    "round": 3,
+    "recordedAt": "2026-11-02T08:16:18.905Z"
+  },
+  "context": {
+    "projectType": "demo",
+    "audience": "owner",
+    "device": "desktop"
+  },
+  "boundary": {
+    "kind": "jnd-band",
+    "lo": 0.421875,
+    "hi": 0.4375,
+    "note": "最近两轮差低于可辨识阈值 JND（5%），两者等效；默认值取最近一次指认，不主张区间内更细的差异"
+  },
+  "convergence": {
+    "verdict": "evidence",
+    "note": "R1 0.375 → R2 0.4375 → R3 0.4219，最新一轮与上一轮差 0.0156 在容差内（停在端点）；n=3 轮，样本小，仅作弱证据"
+  },
+  "attribution": {
+    "assumption": "该轴在约 39%-44% 区间内对评审者不可辨，差异低于可辨识阈值（JND）",
+    "boundary": "等效区间 [37.5%, 43.75%]；低于 JND 的差异不构成偏好证据，停止细分",
+    "confidence": "low"
+  },
+  "expires": {
+    "validUntil": "2026-11-16T08:16:18.905Z",
+    "maxRuns": 3,
+    "runCount": 3,
+    "envFingerprint": "7c7d79d7a076"
+  },
+  "appliedAt": "2026-11-02T08:18:14.330Z"
+}

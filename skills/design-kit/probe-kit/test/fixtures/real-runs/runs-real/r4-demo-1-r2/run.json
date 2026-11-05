@@ -1,0 +1,55 @@
+{
+  "schema": "probe-run/1",
+  "runId": "r4-demo-1-r2",
+  "skill": "ui-craft",
+  "round": 2,
+  "title": "偏好校准 · 强调色的蓝饱和度",
+  "prompt": "这是上一轮指认区间内的微变体。同样凭直觉选一个，或再指一个更窄的区间。",
+  "dimLabel": "强调色的蓝饱和度",
+  "createdAt": "2026-11-02T07:46:27.484Z",
+  "seed": 7,
+  "axis": {
+    "id": "r4",
+    "dim": "accent_saturation",
+    "label": "强调色的蓝饱和度",
+    "kind": "continuous",
+    "unit": "fraction",
+    "min": 0,
+    "max": 1
+  },
+  "template": {
+    "path": "fixtures/r4/base.html",
+    "sha256": "487010459ae2ed42"
+  },
+  "input": {
+    "values": [
+      0.3125,
+      0.375,
+      0.4375
+    ]
+  },
+  "variants": [
+    {
+      "pos": 1,
+      "id": "v2",
+      "value": 0.375
+    },
+    {
+      "pos": 2,
+      "id": "v3",
+      "value": 0.4375
+    },
+    {
+      "pos": 3,
+      "id": "v1",
+      "value": 0.3125
+    }
+  ],
+  "files": {
+    "run": "run.html"
+  },
+  "presenter": {
+    "version": "1",
+    "recorder": "1"
+  }
+}

@@ -1,0 +1,986 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>偏好探针 · 呈现器</title>
+<style>
+  /* 呈现器只做外框：中性灰、无装饰、无饱和色，避免影响对候选画面的判断。
+     候选画面本身走 iframe 的 srcdoc，样式与呈现器天然隔离。 */
+  :root {
+    --bg: #f4f4f4;
+    --surface: #ffffff;
+    --surface-muted: #fafafa;
+    --line: #d6d6d6;
+    --line-strong: #b8b8b8;
+    --ink: #1f1f1f;
+    --ink-2: #4a4a4a;
+    --ink-3: #6e6e6e;
+    --radius: 6px;
+    --radius-sm: 4px;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.7;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, p { margin: 0; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 8px;
+    z-index: 10;
+    padding: 8px 14px;
+    background: var(--ink);
+    color: #ffffff;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .skip-link:focus { left: 12px; }
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+  }
+
+  /* ── 页头 ─────────────────────────────────────────────────────────── */
+  .masthead { margin-bottom: 18px; }
+  .masthead__kicker {
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+  }
+  .masthead__title {
+    font-size: 23px;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+  .masthead__prompt {
+    margin-top: 10px;
+    max-width: 48em;
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--ink-2);
+  }
+
+  /* ── 实时状态 ─────────────────────────────────────────────────────── */
+  .statusbar {
+    margin: 18px 0 16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .statusbar__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px 20px;
+    flex-wrap: wrap;
+  }
+  .statusbar__answer { font-size: 16px; font-weight: 600; }
+  .statusbar__meta {
+    font-size: 13.5px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .statusbar__live {
+    margin-top: 4px;
+    min-height: 1.7em;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+
+  /* ── 候选画面：固定 360 × 480，窄屏滚动而不是缩小 ─────────────────── */
+  .stage {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 8px 14px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .frames {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    width: max-content;
+  }
+  .frame {
+    position: relative;
+    flex: 0 0 auto;
+    width: 360px;
+    height: 480px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .frame:hover { border-color: var(--ink-3); }
+  .frame:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .frame[aria-pressed="true"] {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px var(--ink);
+  }
+  .frame[aria-disabled="true"] { cursor: default; }
+  .frame__doc {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--surface);
+  }
+  .frame__hit { position: absolute; inset: 0; z-index: 1; }
+  .frame__label {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 2;
+    padding: 2px 9px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #333333;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .frame[aria-pressed="true"] .frame__label {
+    color: #ffffff;
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .stage-note {
+    margin-top: 2px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+  .stage-note--warn {
+    color: var(--ink);
+    background: #fff4d6;
+    border: 1px solid #d9b545;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-weight: 600;
+  }
+
+  /* ── 操作区 ───────────────────────────────────────────────────────── */
+  .panel {
+    margin-top: 20px;
+    padding: 20px 20px 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .panel__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 22px 28px;
+    align-items: start;
+  }
+  .field { min-width: 0; }
+  .field__label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #3a3a3a;
+  }
+  .group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .field__hint {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-muted); border-color: var(--ink-3); }
+  .btn[aria-pressed="true"] {
+    color: #ffffff;
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .btn[disabled]:hover { background: var(--surface); border-color: var(--line-strong); }
+  .btn[aria-pressed="true"][disabled]:hover { background: var(--ink); border-color: var(--ink); }
+  .btn--lock {
+    padding: 0 22px;
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .btn--lock:hover { background: #000000; border-color: #000000; }
+  .btn--lock[disabled] { background: var(--ink); }
+
+  /* ── 锁定结果 ─────────────────────────────────────────────────────── */
+  .result {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .result__title { font-size: 17px; line-height: 1.4; font-weight: 600; }
+  .result__hint {
+    margin-top: 6px;
+    max-width: 52em;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--ink-3);
+  }
+  .result__json {
+    display: block;
+    width: 100%;
+    min-height: 180px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+  .result .group { margin-top: 12px; }
+  .result__status {
+    min-height: 1.7em;
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+
+  /* ── 页脚 ─────────────────────────────────────────────────────────── */
+  .footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-3);
+  }
+  .footer__note { margin-top: 2px; }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 32px; }
+    .masthead__title { font-size: 20px; }
+    .panel { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#panel">跳到操作区</a>
+<div class="page">
+  <header class="masthead">
+    <p class="masthead__kicker">偏好探针 · 本地回合</p>
+    <h1 class="masthead__title" id="run-title">偏好校准</h1>
+    <p class="masthead__prompt" id="run-prompt">正在载入本回合的候选画面…</p>
+  </header>
+
+  <div class="statusbar">
+    <div class="statusbar__row">
+      <p class="statusbar__answer" id="answer-line">当前指认：未选择</p>
+      <p class="statusbar__meta">翻转次数 <span id="flip-count">0</span> · 已用时间 <span id="elapsed">0</span> 秒</p>
+    </div>
+    <p class="statusbar__live" id="live-status" aria-live="polite" aria-atomic="true"></p>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="frames" id="frames" role="group" aria-label="候选画面"></div>
+  </div>
+  <p class="stage-note">窗口较窄时，可左右滚动查看全部位置；候选画面保持原尺寸，不缩放。</p>
+
+  <section class="panel" id="panel" aria-label="指认与记录">
+    <div class="panel__grid">
+      <div class="field">
+        <span class="field__label" id="mode-label">指认方式</span>
+        <div class="group" role="group" aria-labelledby="mode-label">
+          <button type="button" class="btn mode-btn" data-mode="single" aria-pressed="true">选一个</button>
+          <button type="button" class="btn mode-btn" data-mode="between" aria-pressed="false">选区间</button>
+        </div>
+        <p class="field__hint">「选一个」直接点一幅画面；「选区间」依次点两幅画面，表示在这两者之间。</p>
+      </div>
+
+      <div class="field">
+        <span class="field__label" id="confidence-label">把握程度</span>
+        <div class="group" role="group" aria-labelledby="confidence-label" id="confidence-group"></div>
+        <p class="field__hint">必选一项；未选时仍可锁定，但记录里的把握程度会是空值。</p>
+      </div>
+
+      <div class="field">
+        <span class="field__label">操作</span>
+        <div class="group">
+          <button type="button" class="btn" id="clear-btn">清空指认</button>
+          <button type="button" class="btn btn--lock" id="lock-btn">锁定本回合</button>
+        </div>
+        <p class="field__hint">锁定后记录不可再修改。锁定前请先做出指认。</p>
+      </div>
+    </div>
+
+    <section class="result" id="result" hidden aria-labelledby="result-title">
+      <h2 class="result__title" id="result-title" tabindex="-1">本回合已锁定</h2>
+      <p class="result__hint">记录已生成，之后不能再修改。下载文件是一行记录，末尾带换行；复制得到的是同一行内容。</p>
+      <textarea class="result__json" id="answer-json" readonly rows="8" spellcheck="false" tabindex="0" aria-label="锁定后的记录 JSON"></textarea>
+      <div class="group">
+        <button type="button" class="btn" id="download-btn">下载 answer.jsonl</button>
+        <button type="button" class="btn" id="copy-btn">复制 JSON</button>
+      </div>
+      <p class="result__status" id="result-status" role="status" aria-live="polite"></p>
+    </section>
+  </section>
+
+  <footer class="footer">
+    <p class="footer__line">呈现器 v<span class="footer__version">1</span> · 记录 schema probe-answer/1 · 本地运行，不联网</p>
+    <p class="footer__note">本页不加载任何外部资源；所有指认记录只留在本机。</p>
+  </footer>
+</div>
+
+<template id="frame-template">
+  <div class="frame" tabindex="0" role="button" aria-pressed="false" aria-label="位置">
+    <iframe class="frame__doc" title="候选画面" tabindex="-1" aria-hidden="true"></iframe>
+    <span class="frame__hit" aria-hidden="true"></span>
+    <span class="frame__label" aria-hidden="true">位置</span>
+  </div>
+</template>
+
+<script type="application/json" id="run-data">{"schema":"probe-run/1","runId":"r4-demo-1-r2","skill":"ui-craft","title":"偏好校准 · 强调色的蓝饱和度","prompt":"这是上一轮指认区间内的微变体。同样凭直觉选一个，或再指一个更窄的区间。","dimLabel":"强调色的蓝饱和度","confidenceLabels":["猜的","一般","比较确定","非常确定"],"positions":[{"pos":1,"html":"<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>阅读偏好</title>\n<style>\n  /* 受控内容：唯一可变量是 --accent（由生成器替换成具体颜色，占位符只在下面 :root 里出现一次）。\n     其他一切（结构、文案、字号、间距、明度）在不同变体之间逐字节相同。 */\n  :root {\n    --accent: oklch(66% 0.1025 246);\n    --accent-soft: color-mix(in oklch, var(--accent) 16%, white);\n    --accent-ink: color-mix(in oklch, var(--accent) 68%, black);\n    --paper: #faf9f6;\n    --card: #ffffff;\n    --ink: #1d1c1a;\n    --ink-muted: #5d5a54;\n    --ink-faint: #8a867e;\n    --rule: #e6e2da;\n    --radius: 10px;\n  }\n  * { box-sizing: border-box; }\n  html, body { height: 100%; }\n  body {\n    margin: 0;\n    padding: 18px;\n    background: var(--paper);\n    color: var(--ink);\n    font-family: \"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft YaHei\", \"Noto Sans SC\", system-ui, sans-serif;\n    font-size: 14px;\n    line-height: 1.7;\n  }\n  .app-head {\n    display: flex;\n    align-items: baseline;\n    justify-content: space-between;\n    margin-bottom: 14px;\n  }\n  .app-name { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }\n  .app-meta { font-size: 12px; color: var(--ink-faint); }\n  .card {\n    background: var(--card);\n    border: 1px solid var(--rule);\n    border-radius: var(--radius);\n    padding: 18px 16px;\n  }\n  .card-title { margin: 0 0 2px; font-size: 17px; font-weight: 600; }\n  .card-note { margin: 0 0 16px; font-size: 12px; color: var(--ink-muted); }\n  .group { margin-bottom: 16px; }\n  .group-label { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; }\n  .chips { display: flex; gap: 6px; }\n  .chip {\n    flex: 1;\n    min-height: 34px;\n    border: 1px solid var(--rule);\n    border-radius: 8px;\n    background: #fff;\n    color: var(--ink-muted);\n    font: inherit;\n    font-size: 12px;\n    cursor: pointer;\n  }\n  .chip[aria-pressed=\"true\"] {\n    border-color: var(--accent);\n    background: var(--accent-soft);\n    color: var(--accent-ink);\n    font-weight: 600;\n  }\n  .chip:focus-visible, .toggle:focus-visible, .primary:focus-visible, .link:focus-visible {\n    outline: 2px solid var(--accent);\n    outline-offset: 2px;\n  }\n  .row {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    min-height: 34px;\n  }\n  .row-label { font-size: 13px; }\n  .toggle {\n    width: 40px; height: 22px;\n    border: 1px solid var(--rule);\n    border-radius: 999px;\n    background: #eeeae2;\n    position: relative;\n    cursor: pointer;\n    padding: 0;\n  }\n  .toggle::after {\n    content: \"\";\n    position: absolute; top: 3px; left: 3px;\n    width: 14px; height: 14px;\n    border-radius: 50%;\n    background: #fff;\n    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);\n    transition: transform 140ms ease;\n  }\n  .toggle[aria-pressed=\"true\"] { background: var(--accent); border-color: var(--accent); }\n  .toggle[aria-pressed=\"true\"]::after { transform: translateX(18px); }\n  .meter { margin-top: 4px; }\n  .meter-bar { height: 6px; border-radius: 999px; background: #efece5; overflow: hidden; }\n  .meter-fill { height: 100%; width: 62%; background: var(--accent); }\n  .meter-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); margin-top: 4px; }\n  .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }\n  .primary {\n    flex: 1;\n    min-height: 38px;\n    border: 0;\n    border-radius: 8px;\n    background: var(--accent);\n    color: #fff;\n    font: inherit;\n    font-size: 13px;\n    font-weight: 600;\n    cursor: pointer;\n    text-shadow: 0 1px 1px rgb(0 0 0 / 0.18);\n  }\n  .link {\n    font-size: 12px;\n    color: var(--accent-ink);\n    text-underline-offset: 3px;\n    text-decoration-thickness: 1px;\n  }\n  .foot { margin-top: 14px; font-size: 11px; color: var(--ink-faint); }\n</style>\n</head>\n<body>\n  <header class=\"app-head\">\n    <span class=\"app-name\">拾页</span>\n    <span class=\"app-meta\">阅读器 · 设置</span>\n  </header>\n\n  <main class=\"card\">\n    <h1 class=\"card-title\">阅读偏好</h1>\n    <p class=\"card-note\">这些设置会应用到所有打开的书。</p>\n\n    <div class=\"group\">\n      <span class=\"group-label\" id=\"theme-label\">页面底色</span>\n      <div class=\"chips\" role=\"group\" aria-labelledby=\"theme-label\">\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">纸白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"true\">暖白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">夜间</button>\n      </div>\n    </div>\n\n    <div class=\"group row\">\n      <span class=\"row-label\" id=\"eye-label\">护眼提醒</span>\n      <button class=\"toggle\" type=\"button\" aria-pressed=\"true\" aria-labelledby=\"eye-label\"></button>\n    </div>\n\n    <div class=\"group\">\n      <span class=\"group-label\">本周阅读时长</span>\n      <div class=\"meter\">\n        <div class=\"meter-bar\"><div class=\"meter-fill\"></div></div>\n        <div class=\"meter-cap\"><span>4 小时 20 分</span><span>目标 7 小时</span></div>\n      </div>\n    </div>\n\n    <div class=\"actions\">\n      <button class=\"primary\" type=\"button\">保存偏好</button>\n      <a class=\"link\" href=\"#reset\">恢复默认</a>\n    </div>\n  </main>\n\n  <p class=\"foot\">演示内容，非真实产品。</p>\n</body>\n</html>\n"},{"pos":2,"html":"<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>阅读偏好</title>\n<style>\n  /* 受控内容：唯一可变量是 --accent（由生成器替换成具体颜色，占位符只在下面 :root 里出现一次）。\n     其他一切（结构、文案、字号、间距、明度）在不同变体之间逐字节相同。 */\n  :root {\n    --accent: oklch(66% 0.1163 246);\n    --accent-soft: color-mix(in oklch, var(--accent) 16%, white);\n    --accent-ink: color-mix(in oklch, var(--accent) 68%, black);\n    --paper: #faf9f6;\n    --card: #ffffff;\n    --ink: #1d1c1a;\n    --ink-muted: #5d5a54;\n    --ink-faint: #8a867e;\n    --rule: #e6e2da;\n    --radius: 10px;\n  }\n  * { box-sizing: border-box; }\n  html, body { height: 100%; }\n  body {\n    margin: 0;\n    padding: 18px;\n    background: var(--paper);\n    color: var(--ink);\n    font-family: \"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft YaHei\", \"Noto Sans SC\", system-ui, sans-serif;\n    font-size: 14px;\n    line-height: 1.7;\n  }\n  .app-head {\n    display: flex;\n    align-items: baseline;\n    justify-content: space-between;\n    margin-bottom: 14px;\n  }\n  .app-name { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }\n  .app-meta { font-size: 12px; color: var(--ink-faint); }\n  .card {\n    background: var(--card);\n    border: 1px solid var(--rule);\n    border-radius: var(--radius);\n    padding: 18px 16px;\n  }\n  .card-title { margin: 0 0 2px; font-size: 17px; font-weight: 600; }\n  .card-note { margin: 0 0 16px; font-size: 12px; color: var(--ink-muted); }\n  .group { margin-bottom: 16px; }\n  .group-label { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; }\n  .chips { display: flex; gap: 6px; }\n  .chip {\n    flex: 1;\n    min-height: 34px;\n    border: 1px solid var(--rule);\n    border-radius: 8px;\n    background: #fff;\n    color: var(--ink-muted);\n    font: inherit;\n    font-size: 12px;\n    cursor: pointer;\n  }\n  .chip[aria-pressed=\"true\"] {\n    border-color: var(--accent);\n    background: var(--accent-soft);\n    color: var(--accent-ink);\n    font-weight: 600;\n  }\n  .chip:focus-visible, .toggle:focus-visible, .primary:focus-visible, .link:focus-visible {\n    outline: 2px solid var(--accent);\n    outline-offset: 2px;\n  }\n  .row {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    min-height: 34px;\n  }\n  .row-label { font-size: 13px; }\n  .toggle {\n    width: 40px; height: 22px;\n    border: 1px solid var(--rule);\n    border-radius: 999px;\n    background: #eeeae2;\n    position: relative;\n    cursor: pointer;\n    padding: 0;\n  }\n  .toggle::after {\n    content: \"\";\n    position: absolute; top: 3px; left: 3px;\n    width: 14px; height: 14px;\n    border-radius: 50%;\n    background: #fff;\n    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);\n    transition: transform 140ms ease;\n  }\n  .toggle[aria-pressed=\"true\"] { background: var(--accent); border-color: var(--accent); }\n  .toggle[aria-pressed=\"true\"]::after { transform: translateX(18px); }\n  .meter { margin-top: 4px; }\n  .meter-bar { height: 6px; border-radius: 999px; background: #efece5; overflow: hidden; }\n  .meter-fill { height: 100%; width: 62%; background: var(--accent); }\n  .meter-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); margin-top: 4px; }\n  .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }\n  .primary {\n    flex: 1;\n    min-height: 38px;\n    border: 0;\n    border-radius: 8px;\n    background: var(--accent);\n    color: #fff;\n    font: inherit;\n    font-size: 13px;\n    font-weight: 600;\n    cursor: pointer;\n    text-shadow: 0 1px 1px rgb(0 0 0 / 0.18);\n  }\n  .link {\n    font-size: 12px;\n    color: var(--accent-ink);\n    text-underline-offset: 3px;\n    text-decoration-thickness: 1px;\n  }\n  .foot { margin-top: 14px; font-size: 11px; color: var(--ink-faint); }\n</style>\n</head>\n<body>\n  <header class=\"app-head\">\n    <span class=\"app-name\">拾页</span>\n    <span class=\"app-meta\">阅读器 · 设置</span>\n  </header>\n\n  <main class=\"card\">\n    <h1 class=\"card-title\">阅读偏好</h1>\n    <p class=\"card-note\">这些设置会应用到所有打开的书。</p>\n\n    <div class=\"group\">\n      <span class=\"group-label\" id=\"theme-label\">页面底色</span>\n      <div class=\"chips\" role=\"group\" aria-labelledby=\"theme-label\">\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">纸白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"true\">暖白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">夜间</button>\n      </div>\n    </div>\n\n    <div class=\"group row\">\n      <span class=\"row-label\" id=\"eye-label\">护眼提醒</span>\n      <button class=\"toggle\" type=\"button\" aria-pressed=\"true\" aria-labelledby=\"eye-label\"></button>\n    </div>\n\n    <div class=\"group\">\n      <span class=\"group-label\">本周阅读时长</span>\n      <div class=\"meter\">\n        <div class=\"meter-bar\"><div class=\"meter-fill\"></div></div>\n        <div class=\"meter-cap\"><span>4 小时 20 分</span><span>目标 7 小时</span></div>\n      </div>\n    </div>\n\n    <div class=\"actions\">\n      <button class=\"primary\" type=\"button\">保存偏好</button>\n      <a class=\"link\" href=\"#reset\">恢复默认</a>\n    </div>\n  </main>\n\n  <p class=\"foot\">演示内容，非真实产品。</p>\n</body>\n</html>\n"},{"pos":3,"html":"<!doctype html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>阅读偏好</title>\n<style>\n  /* 受控内容：唯一可变量是 --accent（由生成器替换成具体颜色，占位符只在下面 :root 里出现一次）。\n     其他一切（结构、文案、字号、间距、明度）在不同变体之间逐字节相同。 */\n  :root {\n    --accent: oklch(66% 0.0888 246);\n    --accent-soft: color-mix(in oklch, var(--accent) 16%, white);\n    --accent-ink: color-mix(in oklch, var(--accent) 68%, black);\n    --paper: #faf9f6;\n    --card: #ffffff;\n    --ink: #1d1c1a;\n    --ink-muted: #5d5a54;\n    --ink-faint: #8a867e;\n    --rule: #e6e2da;\n    --radius: 10px;\n  }\n  * { box-sizing: border-box; }\n  html, body { height: 100%; }\n  body {\n    margin: 0;\n    padding: 18px;\n    background: var(--paper);\n    color: var(--ink);\n    font-family: \"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft YaHei\", \"Noto Sans SC\", system-ui, sans-serif;\n    font-size: 14px;\n    line-height: 1.7;\n  }\n  .app-head {\n    display: flex;\n    align-items: baseline;\n    justify-content: space-between;\n    margin-bottom: 14px;\n  }\n  .app-name { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }\n  .app-meta { font-size: 12px; color: var(--ink-faint); }\n  .card {\n    background: var(--card);\n    border: 1px solid var(--rule);\n    border-radius: var(--radius);\n    padding: 18px 16px;\n  }\n  .card-title { margin: 0 0 2px; font-size: 17px; font-weight: 600; }\n  .card-note { margin: 0 0 16px; font-size: 12px; color: var(--ink-muted); }\n  .group { margin-bottom: 16px; }\n  .group-label { display: block; font-size: 12px; color: var(--ink-muted); margin-bottom: 6px; }\n  .chips { display: flex; gap: 6px; }\n  .chip {\n    flex: 1;\n    min-height: 34px;\n    border: 1px solid var(--rule);\n    border-radius: 8px;\n    background: #fff;\n    color: var(--ink-muted);\n    font: inherit;\n    font-size: 12px;\n    cursor: pointer;\n  }\n  .chip[aria-pressed=\"true\"] {\n    border-color: var(--accent);\n    background: var(--accent-soft);\n    color: var(--accent-ink);\n    font-weight: 600;\n  }\n  .chip:focus-visible, .toggle:focus-visible, .primary:focus-visible, .link:focus-visible {\n    outline: 2px solid var(--accent);\n    outline-offset: 2px;\n  }\n  .row {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    gap: 10px;\n    min-height: 34px;\n  }\n  .row-label { font-size: 13px; }\n  .toggle {\n    width: 40px; height: 22px;\n    border: 1px solid var(--rule);\n    border-radius: 999px;\n    background: #eeeae2;\n    position: relative;\n    cursor: pointer;\n    padding: 0;\n  }\n  .toggle::after {\n    content: \"\";\n    position: absolute; top: 3px; left: 3px;\n    width: 14px; height: 14px;\n    border-radius: 50%;\n    background: #fff;\n    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);\n    transition: transform 140ms ease;\n  }\n  .toggle[aria-pressed=\"true\"] { background: var(--accent); border-color: var(--accent); }\n  .toggle[aria-pressed=\"true\"]::after { transform: translateX(18px); }\n  .meter { margin-top: 4px; }\n  .meter-bar { height: 6px; border-radius: 999px; background: #efece5; overflow: hidden; }\n  .meter-fill { height: 100%; width: 62%; background: var(--accent); }\n  .meter-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); margin-top: 4px; }\n  .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }\n  .primary {\n    flex: 1;\n    min-height: 38px;\n    border: 0;\n    border-radius: 8px;\n    background: var(--accent);\n    color: #fff;\n    font: inherit;\n    font-size: 13px;\n    font-weight: 600;\n    cursor: pointer;\n    text-shadow: 0 1px 1px rgb(0 0 0 / 0.18);\n  }\n  .link {\n    font-size: 12px;\n    color: var(--accent-ink);\n    text-underline-offset: 3px;\n    text-decoration-thickness: 1px;\n  }\n  .foot { margin-top: 14px; font-size: 11px; color: var(--ink-faint); }\n</style>\n</head>\n<body>\n  <header class=\"app-head\">\n    <span class=\"app-name\">拾页</span>\n    <span class=\"app-meta\">阅读器 · 设置</span>\n  </header>\n\n  <main class=\"card\">\n    <h1 class=\"card-title\">阅读偏好</h1>\n    <p class=\"card-note\">这些设置会应用到所有打开的书。</p>\n\n    <div class=\"group\">\n      <span class=\"group-label\" id=\"theme-label\">页面底色</span>\n      <div class=\"chips\" role=\"group\" aria-labelledby=\"theme-label\">\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">纸白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"true\">暖白</button>\n        <button class=\"chip\" type=\"button\" aria-pressed=\"false\">夜间</button>\n      </div>\n    </div>\n\n    <div class=\"group row\">\n      <span class=\"row-label\" id=\"eye-label\">护眼提醒</span>\n      <button class=\"toggle\" type=\"button\" aria-pressed=\"true\" aria-labelledby=\"eye-label\"></button>\n    </div>\n\n    <div class=\"group\">\n      <span class=\"group-label\">本周阅读时长</span>\n      <div class=\"meter\">\n        <div class=\"meter-bar\"><div class=\"meter-fill\"></div></div>\n        <div class=\"meter-cap\"><span>4 小时 20 分</span><span>目标 7 小时</span></div>\n      </div>\n    </div>\n\n    <div class=\"actions\">\n      <button class=\"primary\" type=\"button\">保存偏好</button>\n      <a class=\"link\" href=\"#reset\">恢复默认</a>\n    </div>\n  </main>\n\n  <p class=\"foot\">演示内容，非真实产品。</p>\n</body>\n</html>\n"}],"createdAt":"2026-11-02T07:46:27.484Z"}</script>
+<script>
+// 指认记录状态机：无 DOM、无依赖，Node 与浏览器共用。
+// 浏览器侧由呈现器内联（去掉 export 前缀），Node 侧直接 import 测试。
+
+const RECORDER_VERSION = '1';
+
+function assertPos(pos, positionCount) {
+  if (!Number.isInteger(pos) || pos < 1 || pos > positionCount) {
+    throw new RangeError(`位置编号必须是 1..${positionCount} 的整数，收到 ${JSON.stringify(pos)}`);
+  }
+}
+
+function iso(at) {
+  return new Date(at).toISOString();
+}
+
+function createSession(options) {
+  const { runId, positionCount, sessionId = null, startedAt = Date.now(), clock = Date.now } = options ?? {};
+  if (typeof runId !== 'string' || runId === '') throw new TypeError('createSession 需要 runId');
+  if (!Number.isInteger(positionCount) || positionCount < 2) throw new TypeError('positionCount 至少为 2');
+
+  const state = {
+    answerKind: null, // 'absolute' | 'between'
+    chosenPos: null,
+    betweenPos: null,
+    confidence: null,
+    flips: 0,
+    dwell: Object.fromEntries(Array.from({ length: positionCount }, (_, i) => [String(i + 1), 0])),
+    openEnter: new Map(),
+    env: {},
+    locked: false,
+    lockRecord: null,
+    startedAt,
+  };
+
+  const hasAnswer = () => state.answerKind !== null;
+
+  const session = {
+    runId,
+    positionCount,
+
+    markEnter(pos) {
+      assertPos(pos, positionCount);
+      if (state.locked) return;
+      if (!state.openEnter.has(pos)) state.openEnter.set(pos, clock());
+    },
+
+    markLeave(pos) {
+      assertPos(pos, positionCount);
+      if (state.locked) return;
+      const at = state.openEnter.get(pos);
+      if (at !== undefined) {
+        state.dwell[String(pos)] += Math.max(0, clock() - at);
+        state.openEnter.delete(pos);
+      }
+    },
+
+    choose(pos) {
+      assertPos(pos, positionCount);
+      if (state.locked) throw new Error('LOCKED');
+      const changed = hasAnswer() && !(state.answerKind === 'absolute' && state.chosenPos === pos);
+      if (changed) state.flips += 1;
+      state.answerKind = 'absolute';
+      state.chosenPos = pos;
+      state.betweenPos = null;
+    },
+
+    chooseBetween(a, b) {
+      assertPos(a, positionCount);
+      assertPos(b, positionCount);
+      if (a === b) throw new RangeError('区间指认需要两个不同的位置');
+      if (state.locked) throw new Error('LOCKED');
+      const pair = [Math.min(a, b), Math.max(a, b)];
+      const changed =
+        hasAnswer() && !(state.answerKind === 'between' && state.betweenPos?.[0] === pair[0] && state.betweenPos?.[1] === pair[1]);
+      if (changed) state.flips += 1;
+      state.answerKind = 'between';
+      state.betweenPos = pair;
+      state.chosenPos = null;
+    },
+
+    clear() {
+      if (state.locked) throw new Error('LOCKED');
+      if (hasAnswer()) state.flips += 1;
+      state.answerKind = null;
+      state.chosenPos = null;
+      state.betweenPos = null;
+    },
+
+    setConfidence(level) {
+      if (level !== null && ![1, 2, 3, 4].includes(level)) {
+        throw new RangeError('把握程度只能是 1..4 或 null');
+      }
+      state.confidence = level;
+    },
+
+    setEnvironment(env) {
+      if (env === null || typeof env !== 'object') throw new TypeError('setEnvironment 需要对象');
+      const allow = ['viewport', 'lang', 'reducedMotion', 'userAgentFamily'];
+      for (const key of allow) if (env[key] !== undefined) state.env[key] = env[key];
+    },
+
+    peek() {
+      session.flushDwell();
+      return {
+        runId,
+        locked: state.locked,
+        answerKind: state.answerKind,
+        chosenPos: state.chosenPos,
+        betweenPos: state.betweenPos ? [...state.betweenPos] : null,
+        confidence: state.confidence,
+        flips: state.flips,
+        dwellMs: { ...state.dwell },
+        elapsedMs: Math.max(0, clock() - state.startedAt),
+        env: { ...state.env },
+      };
+    },
+
+    answerSummary() {
+      if (!hasAnswer()) return null;
+      return {
+        kind: state.answerKind,
+        chosenPos: state.chosenPos,
+        betweenPos: state.betweenPos ? [...state.betweenPos] : null,
+        flips: state.flips,
+        confidence: state.confidence,
+      };
+    },
+
+    /** 把尚未离开的停留计时结算掉（窗口失焦、页面隐藏、锁定时调用）。 */
+    flushDwell() {
+      const now = clock();
+      for (const [pos, at] of state.openEnter) {
+        state.dwell[String(pos)] += Math.max(0, now - at);
+        state.openEnter.set(pos, now);
+      }
+    },
+
+    lock() {
+      if (state.locked) throw new Error('LOCKED');
+      if (!hasAnswer()) throw new Error('NO_ANSWER');
+      session.flushDwell();
+      state.openEnter.clear();
+      state.locked = true;
+      const endedAt = clock();
+      state.lockRecord = {
+        schema: 'probe-answer/1',
+        recorder: RECORDER_VERSION,
+        runId,
+        sessionId,
+        startedAt: iso(state.startedAt),
+        endedAt: iso(endedAt),
+        durationMs: Math.max(0, endedAt - state.startedAt),
+        answer: {
+          kind: state.answerKind,
+          chosenPos: state.chosenPos,
+          betweenPos: state.betweenPos ? [...state.betweenPos] : null,
+        },
+        flips: state.flips,
+        dwellMs: { ...state.dwell },
+        confidence: state.confidence,
+        env: { ...state.env },
+      };
+      return state.lockRecord;
+    },
+  };
+
+  return session;
+}
+
+/** 校验一条指认记录与位置数量是否自洽。 */
+function validateAnswer(record, positionCount) {
+  const errors = [];
+  if (record === null || typeof record !== 'object') return { ok: false, errors: ['记录不是对象'] };
+  if (record.schema !== 'probe-answer/1') errors.push(`schema 应为 probe-answer/1，收到 ${record.schema}`);
+  if (!Number.isInteger(positionCount) || positionCount < 2) errors.push('positionCount 非法');
+  if (record.answer === null || typeof record.answer !== 'object') {
+    errors.push('缺少 answer');
+    return { ok: false, errors };
+  }
+  const { kind, chosenPos, betweenPos } = record.answer;
+  if (kind === 'absolute') {
+    if (!Number.isInteger(chosenPos) || chosenPos < 1 || chosenPos > positionCount) errors.push('absolute 指认的 chosenPos 非法');
+    if (betweenPos !== null && betweenPos !== undefined) errors.push('absolute 指认不应带 betweenPos');
+  } else if (kind === 'between') {
+    if (!Array.isArray(betweenPos) || betweenPos.length !== 2) errors.push('between 指认缺少两个位置');
+    else {
+      const [a, b] = betweenPos;
+      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 1 || b < 1 || a > positionCount || b > positionCount) {
+        errors.push('between 指认的位置越界');
+      } else if (a === b) errors.push('between 指认的两个位置相同');
+      else if (a > b) errors.push('between 指认的位置应升序存储');
+    }
+    if (chosenPos !== null && chosenPos !== undefined) errors.push('between 指认不应带 chosenPos');
+  } else {
+    errors.push(`未知的 answer.kind：${kind}`);
+  }
+  if (!Number.isInteger(record.flips) || record.flips < 0) errors.push('flips 应为非负整数');
+  if (record.confidence !== null && ![1, 2, 3, 4].includes(record.confidence)) errors.push('confidence 应为 1..4 或 null');
+  if (record.dwellMs !== undefined) {
+    if (record.dwellMs === null || typeof record.dwellMs !== 'object') errors.push('dwellMs 应为对象');
+    else {
+      for (const [key, value] of Object.entries(record.dwellMs)) {
+        const pos = Number(key);
+        if (!Number.isInteger(pos) || pos < 1 || pos > positionCount) errors.push(`dwellMs 的位置 ${key} 越界`);
+        if (typeof value !== 'number' || value < 0) errors.push(`dwellMs[${key}] 应为非负数`);
+      }
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+/** 生成给呈现器内联用的源码：去掉 export 前缀，保留函数体。 */
+function inlineSource(source) {
+  return source.replace(/^export\s+(function|const|let|class)\s/gm, '$1 ');
+}
+
+</script>
+<script>
+(function () {
+  'use strict';
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function showFatal(message) {
+    var stage = byId('stage');
+    if (stage) { stage.textContent = message; }
+    var live = byId('live-status');
+    if (live) { live.textContent = message; }
+    var panel = byId('panel');
+    if (panel) { panel.hidden = true; }
+  }
+
+  var run = null;
+  try {
+    run = JSON.parse(byId('run-data').textContent);
+  } catch (error) {
+    showFatal('本回合数据无法解析，请回到生成命令检查记录文件。');
+    return;
+  }
+
+  var positions = run !== null && Array.isArray(run.positions) ? run.positions : [];
+  if (positions.length < 2) {
+    showFatal('本回合的候选位置不足两个，数据可能不完整。');
+    return;
+  }
+
+  var positionCount = positions.length;
+  var startedAtMs = Date.now();
+  var session = null;
+  try {
+    session = createSession({
+      runId: String(run.runId || 'run'),
+      positionCount: positionCount,
+      startedAt: startedAtMs
+    });
+  } catch (error) {
+    showFatal('指认记录器初始化失败，页面无法使用。');
+    return;
+  }
+
+  session.setEnvironment({
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+    lang: navigator.language,
+    reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  });
+
+  // 窄视口提示：3 个 360px 变体约需 1120px；不能同屏时明确告警，避免「没看全」被当成「不喜欢」。
+  var stageEl = byId('stage');
+  var stageNote = document.querySelector('.stage-note');
+  function updateFitHint() {
+    if (!stageEl || !stageNote) return;
+    var overflow = stageEl.scrollWidth - stageEl.clientWidth;
+    if (overflow > 4) {
+      var frameWidth = 360;
+      var visible = Math.max(1, Math.floor(stageEl.clientWidth / frameWidth));
+      stageNote.textContent =
+        '当前窗口只能同屏看到约 ' + visible + ' / ' + positionCount +
+        ' 个变体。请先左右滚动看全所有位置再指认；候选画面保持原尺寸，不缩放。';
+      stageNote.classList.add('stage-note--warn');
+      stageNote.setAttribute('role', 'alert');
+    } else {
+      stageNote.textContent = '窗口可同屏看到全部变体；候选画面保持原尺寸，不缩放。';
+      stageNote.classList.remove('stage-note--warn');
+      stageNote.removeAttribute('role');
+    }
+  }
+
+  byId('run-title').textContent =
+    typeof run.title === 'string' && run.title !== '' ? run.title : '偏好校准';
+  byId('run-prompt').textContent =
+    typeof run.prompt === 'string' && run.prompt !== ''
+      ? run.prompt
+      : '同一组候选画面，只有一处细节不同。凭直觉选一个；也可以点两个，表示「在两者之间」。';
+
+  var framesEl = byId('frames');
+  var frameTemplate = byId('frame-template');
+  var answerLine = byId('answer-line');
+  var flipCount = byId('flip-count');
+  var elapsedEl = byId('elapsed');
+  var liveStatus = byId('live-status');
+  var clearBtn = byId('clear-btn');
+  var lockBtn = byId('lock-btn');
+  var confidenceGroup = byId('confidence-group');
+  var resultSection = byId('result');
+  var resultTitle = byId('result-title');
+  var answerJson = byId('answer-json');
+  var resultStatus = byId('result-status');
+  var downloadBtn = byId('download-btn');
+  var copyBtn = byId('copy-btn');
+  var modeButtons = Array.prototype.slice.call(document.querySelectorAll('.mode-btn'));
+  var confidenceButtons = [];
+  var frameNodes = [];
+
+  var mode = 'single';
+  var picks = [];
+  var locked = false;
+  var record = null;
+  var timerId = 0;
+
+  function elapsedSeconds() {
+    return Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+  }
+
+  function updateElapsed() {
+    elapsedEl.textContent = String(elapsedSeconds());
+  }
+
+  function announce(message) {
+    liveStatus.textContent = '';
+    window.setTimeout(function () {
+      liveStatus.textContent = message;
+    }, 40);
+  }
+
+  function render() {
+    var state = session.peek();
+
+    if (state.answerKind === 'absolute') {
+      answerLine.textContent = '当前指认：位置 ' + state.chosenPos;
+    } else if (state.answerKind === 'between') {
+      answerLine.textContent =
+        '当前指认：' + state.betweenPos[0] + ' 与 ' + state.betweenPos[1] + ' 之间';
+    } else {
+      answerLine.textContent = '当前指认：未选择';
+    }
+    flipCount.textContent = String(state.flips);
+
+    frameNodes.forEach(function (node) {
+      var pos = Number(node.getAttribute('data-pos'));
+      var pressed = mode === 'single'
+        ? state.answerKind === 'absolute' && state.chosenPos === pos
+        : picks.indexOf(pos) !== -1;
+      node.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      node.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      node.tabIndex = locked ? -1 : 0;
+    });
+
+    modeButtons.forEach(function (button) {
+      var active = button.getAttribute('data-mode') === mode;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.disabled = locked;
+    });
+
+    confidenceButtons.forEach(function (button) {
+      var level = Number(button.getAttribute('data-level'));
+      button.setAttribute('aria-pressed', state.confidence === level ? 'true' : 'false');
+      button.disabled = locked;
+    });
+
+    clearBtn.disabled = locked;
+    lockBtn.disabled = locked;
+  }
+
+  function setMode(next) {
+    if (locked || next === mode) { return; }
+    mode = next;
+    var state = session.peek();
+    if (mode === 'between') {
+      picks = state.answerKind === 'between' && state.betweenPos ? state.betweenPos.slice() : [];
+    } else {
+      picks = [];
+    }
+    render();
+    announce(mode === 'single'
+      ? '已切换到「选一个」：点一幅画面即可。'
+      : '已切换到「选区间」：依次点两幅画面。');
+  }
+
+  function activate(pos) {
+    if (locked) { return; }
+    if (mode === 'single') {
+      session.choose(pos);
+      picks = [];
+      render();
+      announce('已选位置 ' + pos);
+      return;
+    }
+    if (picks.length === 1 && picks[0] === pos) {
+      picks = [];
+      render();
+      announce('已取消位置 ' + pos);
+      return;
+    }
+    if (picks.length === 1) {
+      var first = picks[0];
+      session.chooseBetween(first, pos);
+      picks = [first, pos];
+      render();
+      var pair = [Math.min(first, pos), Math.max(first, pos)];
+      announce('当前指认：' + pair[0] + ' 与 ' + pair[1] + ' 之间');
+      return;
+    }
+    picks = [pos];
+    render();
+    announce('已选位置 ' + pos + '，再点另一个位置组成区间');
+  }
+
+  function onFrameKey(event, pos) {
+    if (locked) { return; }
+    var key = event.key;
+    var isActivate = key === 'Enter'
+      || ((key === ' ' || key === 'Space' || key === 'Spacebar') && mode === 'single');
+    if (!isActivate) { return; }
+    event.preventDefault();
+    activate(pos);
+  }
+
+  function clearAnswer() {
+    if (locked) { return; }
+    session.clear();
+    picks = [];
+    render();
+    announce('已清空指认。');
+  }
+
+  function flushDwell() {
+    if (locked) { return; }
+    try {
+      session.flushDwell();
+    } catch (error) {
+      /* 停留计时结算失败不影响继续指认 */
+    }
+  }
+
+  function lockSession() {
+    if (locked) { return; }
+    var state = session.peek();
+    if (state.answerKind === null) {
+      announce('还没有指认：先选一个位置，或切换到「选区间」选两个位置。');
+      return;
+    }
+    var nextRecord = null;
+    try {
+      nextRecord = session.lock();
+    } catch (error) {
+      announce('锁定失败，请重试。');
+      return;
+    }
+    record = nextRecord;
+    locked = true;
+    window.clearInterval(timerId);
+    updateElapsed();
+    answerJson.value = JSON.stringify(record, null, 2);
+    resultSection.hidden = false;
+    render();
+    announce(state.confidence === null
+      ? '已锁定本回合；未选把握程度，记录里是空值。'
+      : '已锁定本回合，记录已生成。');
+    if (resultTitle) { resultTitle.focus(); }
+  }
+
+  function downloadAnswer() {
+    if (record === null) { return; }
+    var text = JSON.stringify(record) + '\n';
+    var fileName = 'answer-' + String(record.runId || run.runId || 'run') + '.jsonl';
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 2000);
+    resultStatus.textContent = '已开始下载 ' + fileName + '。';
+  }
+
+  function legacyCopy(text) {
+    var box = answerJson;
+    var shown = box.value;
+    var ok = false;
+    try {
+      box.value = text;
+      box.focus();
+      box.select();
+      ok = document.execCommand('copy');
+    } catch (error) {
+      ok = false;
+    }
+    box.value = shown;
+    box.setSelectionRange(0, 0);
+    return ok;
+  }
+
+  function copyJson() {
+    if (record === null) { return; }
+    var text = JSON.stringify(record) + '\n';
+    function finish(ok) {
+      resultStatus.textContent = ok
+        ? '已复制到剪贴板，内容与下载文件一致。'
+        : '复制失败：请手动选中文本框内容复制。';
+    }
+    var clipboard = null;
+    try {
+      clipboard = navigator.clipboard;
+    } catch (error) {
+      clipboard = null;
+    }
+    if (clipboard && typeof clipboard.writeText === 'function') {
+      clipboard.writeText(text).then(function () {
+        finish(true);
+      }, function () {
+        finish(legacyCopy(text));
+      });
+    } else {
+      finish(legacyCopy(text));
+    }
+  }
+
+  positions.forEach(function (position, index) {
+    var pos = index + 1;
+    var node = frameTemplate.content.firstElementChild.cloneNode(true);
+    node.setAttribute('data-pos', String(pos));
+    node.setAttribute('aria-label', '位置 ' + pos);
+    node.querySelector('.frame__label').textContent = '位置 ' + pos;
+    var view = node.querySelector('.frame__doc');
+    view.setAttribute('title', '位置 ' + pos + ' 的候选画面');
+    view.srcdoc = typeof position.html === 'string' ? position.html : '';
+    node.addEventListener('click', function () {
+      activate(pos);
+    });
+    node.addEventListener('keydown', function (event) {
+      onFrameKey(event, pos);
+    });
+    node.addEventListener('mouseenter', function () {
+      session.markEnter(pos);
+    });
+    node.addEventListener('mouseleave', function () {
+      session.markLeave(pos);
+    });
+    framesEl.appendChild(node);
+    frameNodes.push(node);
+  });
+
+  var fallbackLabels = ['猜的', '一般', '比较确定', '非常确定'];
+  var labels = Array.isArray(run.confidenceLabels) && run.confidenceLabels.length >= 4
+    ? run.confidenceLabels.slice(0, 4)
+    : fallbackLabels;
+  for (var level = 1; level <= 4; level += 1) {
+    (function (levelValue, labelText) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn';
+      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('data-level', String(levelValue));
+      button.setAttribute('aria-label', '把握程度：' + labelText + '（第 ' + levelValue + ' 档，共 4 档）');
+      button.textContent = labelText;
+      button.addEventListener('click', function () {
+        if (locked) { return; }
+        session.setConfidence(levelValue);
+        render();
+        announce('把握程度：' + labelText);
+      });
+      confidenceGroup.appendChild(button);
+      confidenceButtons.push(button);
+    }(level, String(labels[level - 1] || fallbackLabels[level - 1])));
+  }
+
+  modeButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      setMode(button.getAttribute('data-mode'));
+    });
+  });
+  clearBtn.addEventListener('click', clearAnswer);
+  lockBtn.addEventListener('click', lockSession);
+  downloadBtn.addEventListener('click', downloadAnswer);
+  copyBtn.addEventListener('click', copyJson);
+  window.addEventListener('blur', function () {
+    flushDwell();
+  });
+  document.addEventListener('visibilitychange', function () {
+    flushDwell();
+  });
+
+  timerId = window.setInterval(updateElapsed, 1000);
+  updateElapsed();
+  render();
+  updateFitHint();
+  window.addEventListener('resize', updateFitHint);
+  announce('本回合已就绪：点一幅画面表示「选一个」，或切换到「选区间」再点两幅。');
+}());
+</script>
+</body>
+</html>

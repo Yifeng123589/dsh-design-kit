@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>粗选 · 轮次页</title>
+<style>
+  /* 粗选轮次页只做外框：中性灰、无装饰、无饱和色，避免影响对候选画面的判断。
+     候选画面走 iframe 的 srcdoc，样式与页面天然隔离；只有「窄视口告警」用琥珀色。 */
+  :root {
+    --bg: #f4f4f4;
+    --surface: #ffffff;
+    --surface-muted: #fafafa;
+    --line: #d6d6d6;
+    --line-strong: #b8b8b8;
+    --ink: #1f1f1f;
+    --ink-2: #4a4a4a;
+    --ink-3: #6e6e6e;
+    --error-ink: #7a2e2e;
+    --radius: 6px;
+    --radius-sm: 4px;
+    --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.7;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, p { margin: 0; }
+  button { font: inherit; color: inherit; }
+  textarea { font: inherit; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 8px;
+    z-index: 10;
+    padding: 8px 14px;
+    background: var(--ink);
+    color: #ffffff;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .skip-link:focus { left: 12px; }
+  .page { max-width: 1200px; margin: 0 auto; padding: 28px 24px 40px; }
+
+  /* ── 页头 ─────────────────────────────────────────────────────────── */
+  .masthead { margin-bottom: 16px; }
+  .masthead__kicker {
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+  }
+  .masthead__title { font-size: 23px; line-height: 1.35; font-weight: 600; letter-spacing: 0.005em; }
+  .masthead__prompt { margin-top: 10px; max-width: 52em; font-size: 15px; line-height: 1.75; color: var(--ink-2); }
+
+  /* ── 状态条 ───────────────────────────────────────────────────────── */
+  .statusbar {
+    margin: 16px 0 18px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .statusbar__line {
+    font-size: 16px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .statusbar__hint { margin-top: 2px; font-size: 13.5px; line-height: 1.6; color: var(--ink-3); }
+  .statusbar__live {
+    margin-top: 4px;
+    min-height: 1.7em;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+  .statusbar__error {
+    margin-top: 2px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--error-ink);
+  }
+
+  /* ── 区块标题 ─────────────────────────────────────────────────────── */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .section-head__title { font-size: 16px; font-weight: 600; }
+  .section-head__meta { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* ── 待定区：160 × 213 缩略图（360 × 480 缩到 0.444） ─────────────── */
+  .pending { margin-bottom: 22px; }
+  .pending__rail {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 2px 10px;
+  }
+  .thumb { flex: 0 0 auto; width: 160px; }
+  .thumb__viewport {
+    position: relative;
+    width: 160px;
+    height: 213px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+  }
+  .thumb__doc {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+    width: 360px;
+    height: 480px;
+    border: 0;
+    background: var(--surface);
+    transform: scale(0.444);
+    transform-origin: 0 0;
+  }
+  .thumb__label { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+  .pending__empty {
+    padding: 14px 16px;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--ink-3);
+    background: var(--surface);
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── 本轮候选：3 个固定 360 × 480，窄屏滚动而不缩放 ───────────────── */
+  .stage {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 8px 14px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .candidates {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    width: max-content;
+  }
+  .cand { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; width: 360px; }
+  .cand__frame {
+    position: relative;
+    width: 360px;
+    height: 480px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .cand__frame:hover { border-color: var(--ink-3); }
+  .cand__frame:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .cand--eliminated .cand__frame { opacity: 0.5; }
+  .cand--deferred .cand__frame { border-style: dashed; border-color: var(--ink-3); }
+  .cand__doc {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--surface);
+  }
+  .cand__hit { position: absolute; inset: 0; z-index: 1; }
+  .cand__label {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 2;
+    padding: 2px 9px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #333333;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .cand__bar { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cand__bar .btn { flex: 1 1 0; min-width: 0; }
+  .cand__state {
+    padding: 6px 10px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+  .cand__reasons {
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .cand__reasons-label {
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--ink-3);
+  }
+  .cand__reasons.is-prompted { outline: 2px solid var(--ink); outline-offset: 6px; border-radius: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    min-height: 32px;
+    padding: 2px 10px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .chip:hover { background: var(--surface-muted); border-color: var(--ink-3); }
+  .chip[aria-pressed="true"] { color: #ffffff; background: var(--ink); border-color: var(--ink); }
+  .stage-note { margin-top: 2px; font-size: 13px; line-height: 1.6; color: var(--ink-3); }
+  .keys-note { margin-top: 4px; font-size: 12.5px; line-height: 1.6; color: var(--ink-3); }
+  .stage-note--warn {
+    color: var(--ink);
+    background: #fff4d6;
+    border: 1px solid #d9b545;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-weight: 600;
+  }
+
+  /* ── 按钮 ─────────────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .btn:hover { background: var(--surface-muted); border-color: var(--ink-3); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .btn[disabled]:hover { background: var(--surface); border-color: var(--line-strong); }
+  .btn--primary { color: #ffffff; background: var(--ink); border-color: var(--ink); font-weight: 600; }
+  .btn--primary:hover { background: #000000; border-color: #000000; }
+  .btn--primary[disabled] { background: var(--ink); }
+  .btn--delete { border-color: var(--ink); font-weight: 600; }
+  .btn--small { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+
+  /* ── 提交区 ───────────────────────────────────────────────────────── */
+  .actions {
+    margin-top: 4px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+  .actions__row { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+  .actions__hint { font-size: 13.5px; line-height: 1.6; color: var(--ink-3); }
+  .result { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .result__title { font-size: 17px; line-height: 1.4; font-weight: 600; }
+  .result__hint { margin-top: 6px; max-width: 54em; font-size: 13.5px; line-height: 1.65; color: var(--ink-3); }
+  .result__json {
+    display: block;
+    width: 100%;
+    min-height: 180px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--ink);
+    background: var(--surface-muted);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    resize: vertical;
+  }
+  .result__row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .result__status { min-height: 1.7em; margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+
+  /* ── 页脚 ─────────────────────────────────────────────────────────── */
+  .footer {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-3);
+  }
+  .footer__note { margin-top: 2px; }
+
+  @media (max-width: 640px) {
+    .page { padding: 20px 16px 32px; }
+    .masthead__title { font-size: 20px; }
+    .actions { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#actions">跳到提交区</a>
+<div class="page">
+  <header class="masthead">
+    <p class="masthead__kicker">粗选 shortlist · 本地回合</p>
+    <h1 class="masthead__title" id="run-title">粗选</h1>
+    <p class="masthead__prompt" id="run-prompt">正在载入本轮候选画面…</p>
+  </header>
+
+  <div class="statusbar">
+    <p class="statusbar__line" id="status-line">第 1/4 轮 · 已生成 0/12 · 待定 0/3</p>
+    <p class="statusbar__hint" id="status-hint">删或待定；每轮最多待定 1 个；待定到 3 个进入三选一。</p>
+    <p class="statusbar__live" id="live-status" aria-live="polite" aria-atomic="true"></p>
+    <p class="statusbar__error" id="error-line" role="alert" hidden></p>
+  </div>
+
+  <section class="pending" aria-labelledby="pending-title">
+    <div class="section-head">
+      <h2 class="section-head__title" id="pending-title">待定区</h2>
+      <p class="section-head__meta" id="pending-meta">0/3</p>
+    </div>
+    <div class="pending__rail" id="pending-rail"></div>
+    <p class="pending__empty" id="pending-empty">本轮还没有待定候选。把想再比较的画面临时「待定」，凑满 3 个进入三选一。</p>
+  </section>
+
+  <section class="round" aria-labelledby="round-title">
+    <div class="section-head">
+      <h2 class="section-head__title" id="round-title">本轮候选</h2>
+      <p class="section-head__meta" id="round-meta">3 个</p>
+    </div>
+    <div class="stage" id="stage">
+      <div class="candidates" id="candidates" role="group" aria-label="本轮候选"></div>
+    </div>
+    <p class="stage-note" id="stage-note">候选画面保持原尺寸，不缩放。</p>
+    <p class="stage-note" id="defer-hint" hidden>本轮待定名额已用完：其他候选的「待定」暂时禁用，撤销那个待定后可以换一个。</p>
+    <p class="keys-note">键盘：Tab 聚焦画面；1/2/3 定位；Delete 删除；D 待定；U 撤销；Esc 取消该候选的理由选择。</p>
+  </section>
+
+  <section class="actions" id="actions" aria-labelledby="actions-title">
+    <h2 class="section-head__title" id="actions-title">提交本轮</h2>
+    <div class="actions__row" style="margin-top: 10px;">
+      <button type="button" class="btn btn--primary" id="submit-btn" disabled>提交本轮</button>
+      <p class="actions__hint" id="submit-hint">给全部候选动作之后才能提交。</p>
+    </div>
+
+    <section class="result" id="result" hidden aria-labelledby="result-title">
+      <h2 class="result__title" id="result-title" tabindex="-1">本轮已提交</h2>
+      <p class="result__hint">记录已生成，本轮不可再改。下载文件是一行记录，末尾带换行；复制得到的是同一行内容。</p>
+      <textarea class="result__json" id="record-json" readonly rows="8" spellcheck="false" tabindex="0" aria-label="本轮决策记录 JSON"></textarea>
+      <div class="result__row">
+        <button type="button" class="btn" id="download-btn">下载 decisions 记录</button>
+        <button type="button" class="btn" id="copy-btn">复制 JSON</button>
+      </div>
+      <p class="result__status" id="result-status" role="status" aria-live="polite"></p>
+    </section>
+  </section>
+
+  <footer class="footer">
+    <p class="footer__line">shortlist v__SHORTLIST_VERSION__ · 记录 schema shortlist-decisions/1 · 本地运行，不联网</p>
+    <p class="footer__note">本页不加载任何外部资源；所有决策记录只留在本机。</p>
+  </footer>
+</div>
+
+<template id="candidate-template">
+  <div class="cand">
+    <div class="cand__frame" tabindex="0" role="group" aria-label="候选画面">
+      <iframe class="cand__doc" title="候选画面" tabindex="-1" aria-hidden="true"></iframe>
+      <span class="cand__hit" aria-hidden="true"></span>
+      <span class="cand__label" aria-hidden="true">位置</span>
+    </div>
+    <div class="cand__bar">
+      <button type="button" class="btn btn--delete" data-act="eliminate">删除</button>
+      <button type="button" class="btn" data-act="defer">待定</button>
+      <button type="button" class="btn btn--small" data-act="undo" hidden>撤销</button>
+    </div>
+    <p class="cand__state" hidden></p>
+    <div class="cand__reasons">
+      <p class="cand__reasons-label">删除理由（先选一个）</p>
+      <div class="chips" role="group" aria-label="删除理由"></div>
+    </div>
+  </div>
+</template>
+
+<template id="thumb-template">
+  <div class="thumb">
+    <div class="thumb__viewport">
+      <iframe class="thumb__doc" title="待定候选画面" tabindex="-1" aria-hidden="true"></iframe>
+    </div>
+    <p class="thumb__label">位置</p>
+  </div>
+</template>
+
+<script type="application/json" id="round-data">__ROUND_DATA_JSON__</script>
+<script>
+__ROUND_RECORDER_JS__
+</script>
+<script>
+(function () {
+  'use strict';
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function showFatal(message) {
+    var stage = byId('stage');
+    if (stage) { stage.textContent = message; }
+    var live = byId('live-status');
+    if (live) { live.textContent = message; }
+    var actions = byId('actions');
+    if (actions) { actions.hidden = true; }
+  }
+
+  var data = null;
+  try {
+    var dataEl = document.querySelector('script[type="application/json"]');
+    data = JSON.parse(dataEl.textContent);
+  } catch (error) {
+    showFatal('本轮数据无法解析，请回到生成命令检查 round-data。');
+    return;
+  }
+
+  var candidates = data !== null && Array.isArray(data.candidates) ? data.candidates : [];
+  if (candidates.length < 2) {
+    showFatal('本轮候选不足两个，数据可能不完整。');
+    return;
+  }
+
+  var runId = String(data.runId || 'run');
+  var round = Number.isInteger(data.round) ? data.round : 1;
+  var totalRounds = Number.isInteger(data.totalRounds) ? data.totalRounds : 4;
+  var generatedCount = Number.isInteger(data.generatedCount) ? data.generatedCount : candidates.length;
+  var maxPending = Number.isInteger(data.maxPending) ? data.maxPending : 3;
+  var pendingCountData = Number.isInteger(data.pendingCount) ? data.pendingCount : 0;
+  var maxDeferPerRound = Number.isInteger(data.maxDeferPerRound) ? data.maxDeferPerRound : 1;
+  var reasonChips = Array.isArray(data.reasonChips) ? data.reasonChips : [];
+  var candidateCount = candidates.length;
+
+  var session = null;
+  try {
+    session = createRoundSession({
+      runId: runId,
+      round: round,
+      candidateCount: candidateCount,
+      maxDeferPerRound: maxDeferPerRound,
+      reasons: reasonChips
+    });
+  } catch (error) {
+    showFatal('轮次记录器初始化失败：' + (error && error.message ? error.message : '未知错误'));
+    return;
+  }
+
+  byId('run-title').textContent =
+    typeof data.title === 'string' && data.title !== '' ? data.title : '粗选';
+  byId('run-prompt').textContent =
+    typeof data.prompt === 'string' && data.prompt !== ''
+      ? data.prompt
+      : '本轮有 3 个新方向。删掉确定不要的，把想再比较的标为待定；每轮最多待定 1 个。';
+
+  var candidatesEl = byId('candidates');
+  var candidateTemplate = byId('candidate-template');
+  var pendingRail = byId('pending-rail');
+  var pendingEmpty = byId('pending-empty');
+  var pendingMeta = byId('pending-meta');
+  var stageEl = byId('stage');
+  var stageNote = byId('stage-note');
+  var deferHint = byId('defer-hint');
+  var statusLine = byId('status-line');
+  var liveStatus = byId('live-status');
+  var errorLine = byId('error-line');
+  var submitBtn = byId('submit-btn');
+  var submitHint = byId('submit-hint');
+  var resultSection = byId('result');
+  var resultTitle = byId('result-title');
+  var recordJson = byId('record-json');
+  var resultStatus = byId('result-status');
+  var downloadBtn = byId('download-btn');
+  var copyBtn = byId('copy-btn');
+
+  var actions = {};
+  var selectedReason = {};
+  var history = [];
+  var locked = false;
+  var record = null;
+  var candNodes = {};
+
+  function announce(message) {
+    liveStatus.textContent = '';
+    window.setTimeout(function () {
+      liveStatus.textContent = message;
+    }, 40);
+  }
+
+  function showError(message) {
+    errorLine.textContent = message;
+    errorLine.hidden = false;
+    announce(message);
+  }
+
+  function clearError() {
+    errorLine.textContent = '';
+    errorLine.hidden = true;
+  }
+
+  function reasonById(id) {
+    for (var i = 0; i < reasonChips.length; i += 1) {
+      if (reasonChips[i] && reasonChips[i].id === id) { return reasonChips[i]; }
+    }
+    return null;
+  }
+
+  function canDefer(pos) {
+    try {
+      if (typeof session.canDefer === 'function') { return session.canDefer(pos) === true; }
+    } catch (error) {
+      return false;
+    }
+    return true;
+  }
+
+  pendingMeta.textContent = pendingCountData + '/' + maxPending;
+  var pendingItems = Array.isArray(data.pending) ? data.pending : [];
+  if (pendingItems.length === 0) {
+    pendingEmpty.hidden = false;
+  } else {
+    pendingEmpty.hidden = true;
+    var thumbTemplate = byId('thumb-template');
+    pendingItems.forEach(function (item, index) {
+      var pos = item !== null && Number.isInteger(item.pos) ? item.pos : index + 1;
+      var thumb = thumbTemplate.content.firstElementChild.cloneNode(true);
+      thumb.querySelector('.thumb__label').textContent = '位置 ' + pos;
+      var view = thumb.querySelector('iframe');
+      view.setAttribute('title', '位置 ' + pos + ' 的待定候选画面');
+      view.srcdoc = typeof item.html === 'string' ? item.html : '';
+      pendingRail.appendChild(thumb);
+    });
+  }
+
+  candidates.forEach(function (candidate, index) {
+    var pos = index + 1;
+    var node = candidateTemplate.content.firstElementChild.cloneNode(true);
+    node.setAttribute('data-pos', String(pos));
+    var frame = node.querySelector('.cand__frame');
+    frame.setAttribute('aria-label', '位置 ' + pos + ' 候选画面；按 Delete 删除，按 D 待定');
+    node.querySelector('.cand__label').textContent = '位置 ' + pos;
+    var view = node.querySelector('.cand__doc');
+    view.setAttribute('title', '位置 ' + pos + ' 的候选画面');
+    view.srcdoc = typeof candidate.html === 'string' ? candidate.html : '';
+
+    var chipsEl = node.querySelector('.chips');
+    reasonChips.forEach(function (reason) {
+      if (reason === null || typeof reason !== 'object') { return; }
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.setAttribute('data-reason', String(reason.id));
+      chip.setAttribute('aria-pressed', 'false');
+      chip.textContent = typeof reason.label === 'string' ? reason.label : String(reason.id);
+      chip.addEventListener('click', function () {
+        selectReason(pos, reason);
+      });
+      chipsEl.appendChild(chip);
+    });
+
+    node.querySelector('[data-act="eliminate"]').addEventListener('click', function () {
+      eliminate(pos);
+    });
+    node.querySelector('[data-act="defer"]').addEventListener('click', function () {
+      defer(pos);
+    });
+    node.querySelector('[data-act="undo"]').addEventListener('click', function () {
+      undoAction(pos);
+    });
+    frame.addEventListener('click', function () {
+      focusCandidate(pos);
+    });
+    frame.addEventListener('focus', function () {
+      render();
+    });
+    candidatesEl.appendChild(node);
+    candNodes[pos] = node;
+  });
+
+  function focusCandidate(pos) {
+    var node = candNodes[pos];
+    if (!node) { return; }
+    var frame = node.querySelector('.cand__frame');
+    if (frame) { frame.focus(); }
+  }
+
+  function focusedCandidatePos() {
+    for (var pos = 1; pos <= candidateCount; pos += 1) {
+      var node = candNodes[pos];
+      if (!node) { continue; }
+      var frame = node.querySelector('.cand__frame');
+      if (frame && document.activeElement === frame) { return pos; }
+    }
+    return null;
+  }
+
+  function selectReason(pos, reason) {
+    if (locked) { return; }
+    if (actions[pos]) {
+      announce('位置 ' + pos + ' 已有动作，先撤销再改。');
+      return;
+    }
+    clearError();
+    var current = selectedReason[pos];
+    selectedReason[pos] = current && current.id === reason.id ? null : reason;
+    if (selectedReason[pos]) {
+      announce('位置 ' + pos + ' 的删除理由：' + reason.label);
+    } else {
+      announce('已取消位置 ' + pos + ' 的删除理由');
+    }
+    render();
+  }
+
+  function eliminate(pos) {
+    if (locked) { return; }
+    if (actions[pos]) {
+      announce('位置 ' + pos + ' 已有动作，先撤销再改。');
+      return;
+    }
+    clearError();
+    var reason = selectedReason[pos];
+    if (!reason) {
+      var node = candNodes[pos];
+      var reasonsBox = node ? node.querySelector('.cand__reasons') : null;
+      if (reasonsBox) {
+        reasonsBox.classList.add('is-prompted');
+        window.setTimeout(function () {
+          reasonsBox.classList.remove('is-prompted');
+        }, 1600);
+      }
+      announce('先为位置 ' + pos + ' 选一个删除理由。');
+      var firstChip = node ? node.querySelector('.chip') : null;
+      if (firstChip) { firstChip.focus(); }
+      return;
+    }
+    try {
+      session.setAction(pos, 'eliminate', { reasonId: reason.id, note: '' });
+    } catch (error) {
+      showError('删除失败：' + (error && error.message ? error.message : '未知错误'));
+      return;
+    }
+    actions[pos] = { action: 'eliminate', reasonId: reason.id, label: reason.label };
+    history.push(pos);
+    announce('已删除位置 ' + pos + '，理由：' + reason.label);
+    render();
+  }
+
+  function defer(pos) {
+    if (locked) { return; }
+    if (actions[pos]) {
+      announce('位置 ' + pos + ' 已有动作，先撤销再改。');
+      return;
+    }
+    clearError();
+    if (!canDefer(pos)) {
+      announce('本轮已经待定过 ' + maxDeferPerRound + ' 个候选。先撤销那个待定，再换一个。');
+      return;
+    }
+    try {
+      session.setAction(pos, 'defer');
+    } catch (error) {
+      showError('待定失败：' + (error && error.message ? error.message : '未知错误'));
+      return;
+    }
+    actions[pos] = { action: 'defer' };
+    history.push(pos);
+    announce('已把位置 ' + pos + ' 放入待定');
+    render();
+  }
+
+  function undoAction(pos) {
+    if (locked) { return; }
+    if (!actions[pos]) { return; }
+    try {
+      session.clear(pos);
+    } catch (error) {
+      showError('撤销失败：' + (error && error.message ? error.message : '未知错误'));
+      return;
+    }
+    delete actions[pos];
+    history = history.filter(function (item) { return item !== pos; });
+    delete selectedReason[pos];
+    announce('已撤销位置 ' + pos + ' 的动作');
+    render();
+  }
+
+  function undoLast() {
+    if (locked) { return; }
+    while (history.length > 0) {
+      var pos = history[history.length - 1];
+      if (actions[pos]) {
+        undoAction(pos);
+        return;
+      }
+      history.pop();
+    }
+    announce('没有可以撤销的动作。');
+  }
+
+  function moveFocus(delta) {
+    var pos = focusedCandidatePos();
+    if (pos === null) { return; }
+    var next = pos + delta;
+    if (next < 1) { next = candidateCount; }
+    if (next > candidateCount) { next = 1; }
+    focusCandidate(next);
+    announce('已聚焦位置 ' + next);
+  }
+
+  function peekState() {
+    try {
+      return session.peek();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function render() {
+    var peek = peekState();
+    var deferCount = peek && Number.isInteger(peek.deferCount) ? peek.deferCount : countDefer();
+    var actedCount = 0;
+
+    for (var pos = 1; pos <= candidateCount; pos += 1) {
+      var node = candNodes[pos];
+      if (!node) { continue; }
+      var frame = node.querySelector('.cand__frame');
+      var action = actions[pos];
+      var acted = action !== undefined;
+      if (acted) { actedCount += 1; }
+      node.classList.toggle('cand--eliminated', acted && action.action === 'eliminate');
+      node.classList.toggle('cand--deferred', acted && action.action === 'defer');
+      if (frame) {
+        frame.setAttribute('aria-disabled', locked ? 'true' : 'false');
+        frame.tabIndex = locked ? -1 : 0;
+      }
+      var eliminateBtn = node.querySelector('[data-act="eliminate"]');
+      var deferBtn = node.querySelector('[data-act="defer"]');
+      var undoBtn = node.querySelector('[data-act="undo"]');
+      eliminateBtn.hidden = acted;
+      deferBtn.hidden = acted;
+      undoBtn.hidden = !acted;
+      eliminateBtn.disabled = locked;
+      undoBtn.disabled = locked;
+      var deferAllowed = acted ? false : (canDefer(pos) && !locked);
+      deferBtn.disabled = !deferAllowed;
+      deferBtn.setAttribute('aria-describedby', 'defer-hint');
+      if (!acted && !deferAllowed && !locked) {
+        deferBtn.setAttribute('title', '本轮已经待定过 ' + maxDeferPerRound + ' 个候选，先撤销再换');
+      } else {
+        deferBtn.removeAttribute('title');
+      }
+
+      var stateEl = node.querySelector('.cand__state');
+      if (acted) {
+        stateEl.hidden = false;
+        stateEl.textContent = action.action === 'eliminate'
+          ? '已删除 · 理由：' + action.label
+          : '已待定 · 进入待定区比较';
+      } else {
+        stateEl.hidden = true;
+        stateEl.textContent = '';
+      }
+
+      var reasonsBox = node.querySelector('.cand__reasons');
+      reasonsBox.hidden = acted;
+      var chips = node.querySelectorAll('.chip');
+      for (var i = 0; i < chips.length; i += 1) {
+        var chipReason = chips[i].getAttribute('data-reason');
+        var current = selectedReason[pos];
+        chips[i].setAttribute('aria-pressed', current && current.id === chipReason ? 'true' : 'false');
+        chips[i].disabled = locked || acted;
+      }
+    }
+
+    statusLine.textContent =
+      '第 ' + round + '/' + totalRounds + ' 轮 · 已生成 ' + generatedCount + '/' + (totalRounds * candidates.length) +
+      ' · 待定 ' + (pendingCountData + deferCount) + '/' + maxPending;
+
+    if (deferHint) {
+      var deferFull = deferCount >= maxDeferPerRound;
+      deferHint.hidden = locked || !deferFull;
+      if (deferFull) {
+        deferHint.textContent =
+          '本轮待定名额已用完（' + deferCount + '/' + maxDeferPerRound +
+          '）：其他候选的「待定」暂时禁用，撤销那个待定后可以换一个。';
+      }
+    }
+
+    submitBtn.disabled = locked || actedCount < candidateCount;
+    if (locked) {
+      submitHint.textContent = '本轮已提交，记录不可再改。';
+    } else if (actedCount < candidateCount) {
+      submitHint.textContent = '还差 ' + (candidateCount - actedCount) + ' 个候选动作才能提交本轮。';
+    } else {
+      submitHint.textContent = '全部候选已有动作，可以提交本轮。';
+    }
+  }
+
+  function countDefer() {
+    var count = 0;
+    for (var pos = 1; pos <= candidateCount; pos += 1) {
+      if (actions[pos] && actions[pos].action === 'defer') { count += 1; }
+    }
+    return count;
+  }
+
+  function submitRound() {
+    if (locked) { return; }
+    var peek = peekState();
+    if (!peek || peek.complete !== true) {
+      showError('还不能提交：先给全部候选一个动作（删除或待定）。');
+      return;
+    }
+    var nextRecord = null;
+    try {
+      nextRecord = session.finalize();
+    } catch (error) {
+      showError('提交失败：' + (error && error.message ? error.message : '未知错误'));
+      return;
+    }
+    record = nextRecord;
+    locked = true;
+    var fileName = 'decisions-' + String(record.runId || runId) + '-r' + String(record.round || round) + '.jsonl';
+    recordJson.value = JSON.stringify(record, null, 2);
+    resultSection.hidden = false;
+    downloadBtn.textContent = '下载 ' + fileName;
+    clearError();
+    render();
+    announce('本轮已提交，记录已生成。');
+    resultTitle.focus();
+  }
+
+  function downloadRecord() {
+    if (record === null) { return; }
+    var text = JSON.stringify(record) + '\n';
+    var fileName = 'decisions-' + String(record.runId || runId) + '-r' + String(record.round || round) + '.jsonl';
+    var blob = new Blob([text], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 2000);
+    resultStatus.textContent = '已开始下载 ' + fileName + '。';
+  }
+
+  function legacyCopy(text) {
+    var box = recordJson;
+    var shown = box.value;
+    var ok = false;
+    try {
+      box.value = text;
+      box.focus();
+      box.select();
+      ok = document.execCommand('copy');
+    } catch (error) {
+      ok = false;
+    }
+    box.value = shown;
+    box.setSelectionRange(0, 0);
+    return ok;
+  }
+
+  function copyRecord() {
+    if (record === null) { return; }
+    var text = JSON.stringify(record) + '\n';
+    function finish(ok) {
+      resultStatus.textContent = ok
+        ? '已复制到剪贴板，内容与下载文件一致。'
+        : '复制失败：请手动选中文本框内容复制。';
+    }
+    var clipboard = null;
+    try {
+      clipboard = navigator.clipboard;
+    } catch (error) {
+      clipboard = null;
+    }
+    if (clipboard && typeof clipboard.writeText === 'function') {
+      clipboard.writeText(text).then(function () {
+        finish(true);
+      }, function () {
+        finish(legacyCopy(text));
+      });
+    } else {
+      finish(legacyCopy(text));
+    }
+  }
+
+  function updateFitHint() {
+    if (!stageEl || !stageNote) { return; }
+    var overflow = stageEl.scrollWidth - stageEl.clientWidth;
+    if (overflow > 4) {
+      var gap = 20;
+      var visible = Math.max(1, Math.floor((stageEl.clientWidth + gap) / (360 + gap)));
+      visible = Math.min(visible, Math.max(1, candidateCount - 1));
+      stageNote.textContent =
+        '当前窗口只能同屏看到约 ' + visible + ' / ' + candidateCount +
+        ' 个候选：请放大窗口，或左右滚动逐一比较；候选画面保持原尺寸，不缩放。';
+      stageNote.classList.add('stage-note--warn');
+      stageNote.setAttribute('role', 'alert');
+    } else {
+      stageNote.textContent = '窗口可同屏看到全部候选；候选画面保持原尺寸，不缩放。';
+      stageNote.classList.remove('stage-note--warn');
+      stageNote.removeAttribute('role');
+    }
+  }
+
+  document.addEventListener('keydown', function (event) {
+    if (locked || event.defaultPrevented) { return; }
+    if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+    var target = event.target;
+    var tag = target && target.tagName ? String(target.tagName).toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') { return; }
+    var focused = focusedCandidatePos();
+    var key = event.key;
+
+    if (key === '1' || key === '2' || key === '3') {
+      var wanted = Number(key);
+      if (wanted <= candidateCount) {
+        event.preventDefault();
+        focusCandidate(wanted);
+        announce('已聚焦位置 ' + wanted);
+      }
+      return;
+    }
+    if (key === 'ArrowRight' || key === 'ArrowLeft') {
+      if (focused === null) { return; }
+      event.preventDefault();
+      moveFocus(key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+    if (key === 'Delete') {
+      event.preventDefault();
+      if (focused === null) {
+        announce('先聚焦一个候选画面（Tab 或按 1/2/3），再按 Delete 删除。');
+        return;
+      }
+      eliminate(focused);
+      return;
+    }
+    if (key === 'd' || key === 'D') {
+      event.preventDefault();
+      if (focused === null) {
+        announce('先聚焦一个候选画面（Tab 或按 1/2/3），再按 D 待定。');
+        return;
+      }
+      defer(focused);
+      return;
+    }
+    if (key === 'u' || key === 'U') {
+      event.preventDefault();
+      undoLast();
+      return;
+    }
+    if (key === 'Escape') {
+      if (focused === null) { return; }
+      event.preventDefault();
+      delete selectedReason[focused];
+      render();
+      announce('已清除位置 ' + focused + ' 的删除理由选择。');
+    }
+  });
+
+  submitBtn.addEventListener('click', submitRound);
+  downloadBtn.addEventListener('click', downloadRecord);
+  copyBtn.addEventListener('click', copyRecord);
+
+  window.addEventListener('resize', updateFitHint);
+  updateFitHint();
+  window.setTimeout(updateFitHint, 60);
+  render();
+  announce('本轮已就绪：删除要选理由，待定每轮最多 ' + maxDeferPerRound + ' 个。');
+}());
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阅读偏好</title>
+<style>
+  /* 受控内容：唯一可变量是 --reader-size（正文基准字号）。占位符只在 :root 里出现一次。
+     其他一切（结构、文案、字号、间距、明度）在不同变体之间逐字节相同。 */
+  :root {
+    --accent: oklch(66% 0.12 246);
+    --accent-soft: color-mix(in oklch, var(--accent) 16%, white);
+    --accent-ink: color-mix(in oklch, var(--accent) 68%, black);
+    --paper: #faf9f6;
+    --card: #ffffff;
+    --ink: #1d1c1a;
+    --ink-muted: #5d5a54;
+    --ink-faint: #8a867e;
+    --rule: #e6e2da;
+    --radius: 10px;
+    --reader-size: {{FONT_SIZE}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    padding: 18px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    font-size: var(--reader-size);
+    line-height: 1.7;
+  }
+  .app-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .app-name { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+  .app-meta { font-size: 12px; color: var(--ink-faint); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+  }
+  .card-title { margin: 0 0 2px; font-size: 17px; font-weight: 600; }
+  .card-note { margin: 0 0 16px; font-size: calc(var(--reader-size) * 0.857); color: var(--ink-muted); }
+  .group { margin-bottom: 16px; }
+  .group-label { display: block; font-size: calc(var(--reader-size) * 0.857); color: var(--ink-muted); margin-bottom: 6px; }
+  .chips { display: flex; gap: 6px; }
+  .chip {
+    flex: 1;
+    min-height: 34px;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink-muted);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .chip[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-weight: 600;
+  }
+  .chip:focus-visible, .toggle:focus-visible, .primary:focus-visible, .link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 34px;
+  }
+  .row-label { font-size: calc(var(--reader-size) * 0.929); }
+  .toggle {
+    width: 40px; height: 22px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: #eeeae2;
+    position: relative;
+    cursor: pointer;
+    padding: 0;
+  }
+  .toggle::after {
+    content: "";
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+    transition: transform 140ms ease;
+  }
+  .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); }
+  .toggle[aria-pressed="true"]::after { transform: translateX(18px); }
+  .meter { margin-top: 4px; }
+  .meter-bar { height: 6px; border-radius: 999px; background: #efece5; overflow: hidden; }
+  .meter-fill { height: 100%; width: 62%; background: var(--accent); }
+  .meter-cap { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
+  .actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+  .primary {
+    flex: 1;
+    min-height: 38px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-shadow: 0 1px 1px rgb(0 0 0 / 0.18);
+  }
+  .link {
+    font-size: 12px;
+    color: var(--accent-ink);
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .foot { margin-top: 14px; font-size: calc(var(--reader-size) * 0.786); color: var(--ink-faint); }
+</style>
+</head>
+<body>
+  <header class="app-head">
+    <span class="app-name">拾页</span>
+    <span class="app-meta">阅读器 · 设置</span>
+  </header>
+
+  <main class="card">
+    <h1 class="card-title">阅读偏好</h1>
+    <p class="card-note">这些设置会应用到所有打开的书。</p>
+
+    <div class="group">
+      <span class="group-label" id="theme-label">页面底色</span>
+      <div class="chips" role="group" aria-labelledby="theme-label">
+        <button class="chip" type="button" aria-pressed="false">纸白</button>
+        <button class="chip" type="button" aria-pressed="true">暖白</button>
+        <button class="chip" type="button" aria-pressed="false">夜间</button>
+      </div>
+    </div>
+
+    <div class="group row">
+      <span class="row-label" id="eye-label">护眼提醒</span>
+      <button class="toggle" type="button" aria-pressed="true" aria-labelledby="eye-label"></button>
+    </div>
+
+    <div class="group">
+      <span class="group-label">本周阅读时长</span>
+      <div class="meter">
+        <div class="meter-bar"><div class="meter-fill"></div></div>
+        <div class="meter-cap"><span>4 小时 20 分</span><span>目标 7 小时</span></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" type="button">保存偏好</button>
+      <a class="link" href="#reset">恢复默认</a>
+    </div>
+  </main>
+
+  <p class="foot">演示内容，非真实产品。</p>
+</body>
+</html>

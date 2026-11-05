@@ -1,0 +1,80 @@
+{
+  "name": "dsh-design-kit",
+  "version": "0.1.1",
+  "description": "DSH 统一设计交付插件：一个 design-kit 技能入口，路由到造页面 / 选方向 / 调参数 / 出 PPT；合并 ui-craft 与 probe-kit 的 5 个零依赖工具，加上 deck_check / deck_export / deck_render 与对话内三栏粗选预览。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./skills/*": "./skills/*",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib",
+    "skills/design-kit/SKILL.md",
+    "skills/design-kit/.sync-manifest.json",
+    "skills/design-kit/references",
+    "skills/design-kit/deck",
+    "skills/design-kit/ui-craft",
+    "skills/design-kit/probe-kit/probe.mjs",
+    "skills/design-kit/probe-kit/shortlist.mjs",
+    "skills/design-kit/probe-kit/*.md",
+    "skills/design-kit/probe-kit/lib",
+    "skills/design-kit/probe-kit/templates",
+    "skills/design-kit/probe-kit/fixtures",
+    "cordis.patch.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yifeng123589/dsh-design-kit.git"
+  },
+  "homepage": "https://github.com/Yifeng123589/dsh-design-kit#readme",
+  "bugs": {
+    "url": "https://github.com/Yifeng123589/dsh-design-kit/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "plugin",
+    "skills",
+    "design",
+    "frontend",
+    "probe",
+    "shortlist",
+    "ppt"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node test/apply.mock.mjs",
+    "test:contracts": "node test/shortlist-ui-contract.test.mjs",
+    "test:docs": "node test/docs-consistency.mjs",
+    "test:release": "node test/release-check.mjs",
+    "release": "node scripts/release.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-tool",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  }
+}

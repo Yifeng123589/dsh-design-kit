@@ -1,0 +1,24 @@
+# dsh-design-kit：统一设计交付插件（DeepSeek Harness 插件）。
+#
+# 安装即同时注册：
+#   1. 技能 design-kit（统一入口：造页面 / 选方向 / 调参数 / 出 PPT）
+#   2. 工具 design_lint / design_tokens / design_capture / probe_shortlist / probe_measure
+#      + deck_check / deck_export / deck_render
+#
+# 插件自带空配置，绝不弄崩启动；无需账号或密钥。可选配置：
+#
+#   - id: dsh-design-kit
+#     config:
+#       designTimeoutMs: 30000   # 可选：design_* 脚本超时，默认 30000ms（限制 1s–120s）
+#       probeTimeoutMs: 120000   # 可选：probe_* 脚本超时，默认 120000ms（限制 1s–300s）
+#       deckTimeoutMs: 180000    # 可选：deck_* 超时，默认 180000ms（限制 5s–600s）
+#       timeoutMs: 30000         # 可选：旧配置兼容，design/probe 都兜底（各自再按上限钳制）
+#       ledgerPath: ""           # 可选：探针台账路径，默认 <会话 cwd>/probe-kit-ledger/ledger.jsonl
+#       pptMasterDir: ""         # 可选：deck_* 的 ppt-master 技能目录，默认按工作区/环境发现
+#       pythonPath: ""           # 可选：deck_* 的 Python，默认 DSH runtime → PATH
+#       rendererCli: ""          # 可选：deck_render 的 dsoffice CLI，默认 DSH 安装目录 → PATH
+#
+- insert:
+    - id: dsh-design-kit
+      name: dsh-design-kit
+      config: {}

@@ -1,0 +1,29 @@
+{
+  "schema": "calibration/1",
+  "dim": "accent_saturation",
+  "value": 0.375,
+  "formatted": "38%",
+  "source": {
+    "runId": "r4-demo-1-r2",
+    "round": 2,
+    "recordedAt": "2026-11-02T07:12:35.954Z"
+  },
+  "context": {
+    "projectType": "demo",
+    "audience": "owner",
+    "device": "desktop"
+  },
+  "boundary": {
+    "kind": "point",
+    "value": 0.375,
+    "note": "单点指认，无区间，边界未知"
+  },
+  "attribution": null,
+  "expires": {
+    "validUntil": "2026-11-16T07:12:35.954Z",
+    "maxRuns": 3,
+    "runCount": 2,
+    "envFingerprint": "7c7d79d7a076"
+  },
+  "appliedAt": "2026-11-02T07:23:41.757Z"
+}

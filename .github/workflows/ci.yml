@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Unit / contract / docs
+        run: |
+          node test/apply.mock.mjs
+          node test/shortlist-ui-contract.test.mjs
+          node test/docs-consistency.mjs
+
+      - name: Probe suite
+        run: |
+          node skills/design-kit/probe-kit/test/smoke.mjs
+          node skills/design-kit/probe-kit/test/regression.test.mjs
+          node skills/design-kit/probe-kit/test/axis-lock.test.mjs
+
+      - name: Build release artifacts
+        run: |
+          node scripts/release.mjs
+          node test/release-check.mjs
+          npm pack --pack-destination dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-design-kit-release
+          path: |
+            dist/*.zip
+            dist/*.tgz
+            dist/SHA256SUMS.txt
+            dist/RELEASE-README.md

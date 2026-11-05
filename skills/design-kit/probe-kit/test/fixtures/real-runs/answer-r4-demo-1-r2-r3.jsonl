@@ -1,0 +1,1 @@
+{"schema":"probe-answer/1","recorder":"1","runId":"r4-demo-1-r2-r3","sessionId":null,"startedAt":"2026-11-02T08:15:52.562Z","endedAt":"2026-11-02T08:16:18.905Z","durationMs":26343,"answer":{"kind":"absolute","chosenPos":2,"betweenPos":null},"flips":18,"dwellMs":{"1":4393,"2":9372,"3":6072},"confidence":3,"env":{"viewport":{"w":1699,"h":935},"lang":"zh-CN","reducedMotion":false}}
