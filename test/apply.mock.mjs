@@ -404,6 +404,7 @@ await check('客户端入口与 dsh.client 清单存在', async () => {
   assert(client.includes("key: 'probe_shortlist_preview'"), 'client 应注册 probe_shortlist_preview toolview');
   assert(client.includes('uiToken: data.uiToken'), 'client 回传动作应携带一次性 uiToken');
   assert(client.includes('DecompressionStream'), 'client 应支持解压 gzip 候选预览');
+  assert(client.includes('data-process-activity') && client.includes('scrollIntoView'), 'client 应自动展开过程组并滚动到卡片');
   assert(client.includes('window.__ModuleLoader__.load'), 'client 应通过 ModuleLoader 注册');
 });
 
