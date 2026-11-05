@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+### Fixed
+
+- 修复 `probe_shortlist_preview` / `probe_shortlist_ui_action` 参数 schema 的属性级 `required: true`（JSON Schema 要求 `required` 为数组），真实宿主曾报 `Invalid schema ... true is not of type "array"`。
+- 增加递归 schema 回归测试，锁住所有工具参数不再出现非数组 `required`。
+
 ## 0.1.1
 
 ### Added

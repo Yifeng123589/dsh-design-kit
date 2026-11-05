@@ -687,6 +687,30 @@ await check('B2 状态机：粗选未 final 禁进精调，final 后放行', asy
   }
 });
 
+function schemaProblems(schema, path = 'parameters') {
+  const problems = [];
+  if (schema === null || typeof schema !== 'object') return problems;
+  if (Object.prototype.hasOwnProperty.call(schema, 'required') && !Array.isArray(schema.required)) {
+    problems.push(`${path}.required 必须是数组，收到 ${JSON.stringify(schema.required)}`);
+  }
+  if (schema.properties) {
+    for (const [key, value] of Object.entries(schema.properties)) {
+      problems.push(...schemaProblems(value, `${path}.properties.${key}`));
+    }
+  }
+  if (schema.items) problems.push(...schemaProblems(schema.items, `${path}.items`));
+  return problems;
+}
+
+await check('工具参数 schema 合法：required 必须是数组（真实宿主曾报 true is not of type array）', async () => {
+  const { ctx, registered } = makeCtx();
+  apply(ctx, {});
+  for (const tool of registered.tools) {
+    const problems = schemaProblems(tool.parameters);
+    assert(problems.length === 0, tool.name + '：' + problems.join('；'));
+  }
+});
+
 await check('dispose 调用全部注销器且不抛异常', async () => {
   const { ctx, registered } = makeCtx();
   apply(ctx, { timeoutMs: 5000 });
