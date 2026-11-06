@@ -1,9 +1,7 @@
 ---
 name: design-kit
 description: "统一设计交付入口：造页面、改界面、审前端（网页、落地页、后台、组件、设计系统、AI 味审查），多方向粗选（同族不同派 lineage / 同轴三档 contrast，删/待定/三选一，12 个封顶后归因），参数级精调（单轴 + JND + 台账 + 凭证三态），以及出演示文稿（deck_check/deck_export/deck_render 质检、导出 PPTX、渲染 PDF/PNG）。Use when the user wants to design, redesign, build, critique, audit, or polish a UI; choose between design directions or worlds; fine-tune a design parameter with evidence; or turn content into a slide deck/PPT. 用于设计/评审/打磨界面、选方向、调参数、出 PPT。Not for backend-only tasks."
-version: 0.1.0
 license: MIT
-user-invocable: true
 ---
 
 # Design Kit · 统一设计交付
@@ -12,8 +10,8 @@ user-invocable: true
 
 | 用户要什么 | 走哪条 | 主要工具 | 完整方法 |
 |---|---|---|---|
-| 造页面、改界面、评审、打磨、设计系统 | **A. UI 交付** | `design_tokens` / `design_lint` / `design_capture` | [ui-craft/SKILL.md](ui-craft/SKILL.md) + `ui-craft/references/` |
-| 几个方向选一个、「都差点意思」、风格对比 | **B. 粗选** | `probe_shortlist` + `probe_shortlist_preview` / `probe_shortlist_ui_action` | [references/probe-kit-SKILL.md](references/probe-kit-SKILL.md) |
+| 造页面、改界面、评审、打磨、设计系统 | **A. UI 交付** | `design_tokens` / `design_lint` / `design_capture` | [ui-craft/METHOD.md](ui-craft/METHOD.md) + `ui-craft/references/` |
+| 几个方向选一个、「都差点意思」、风格对比 | **B. 粗选** | `probe_shortlist` + `probe_shortlist_preview` / `probe_shortlist_ui_action` | [references/probe-kit-method.md](references/probe-kit-method.md) |
 | 方向已定，调饱和度/字号/间距等参数 | **C. 精调** | `probe_measure` | 同上 + `probe-kit/PROTOCOL-V0.2.md` |
 | 出 PPT / 演示文稿 / 汇报稿 | **D. PPT 交付** | `deck_check` / `deck_export` / `deck_render` | [references/deck-handoff.md](references/deck-handoff.md) |
 
@@ -29,7 +27,7 @@ user-invocable: true
 
 ## A. UI 交付
 
-完整流程在 `ui-craft/SKILL.md`，按需读 `ui-craft/references/`（world / type / color / layout / motion / states / copy / audit / design-system 等）。这里是压缩版门：
+完整流程在 `ui-craft/METHOD.md`，按需读 `ui-craft/references/`（world / type / color / layout / motion / states / copy / audit / design-system 等）。这里是压缩版门：
 
 1. **定世界**：读既有 DESIGN.md/tokens/页面；问 2–3 个会改变结果的问题；写一句机制 + 方向契约六字段；收敛 1 主 2 备。**门：用户选定，或用户授权且你宣布依据。**
 2. **定系统**：先生成 tokens，再按世界改性格；页面里不出现没有出处的颜色/字号/间距。**门：`tokens.css` 落地 + 对比度自检全绿。**
@@ -37,7 +35,7 @@ user-invocable: true
 4. **审阅**：`design_lint` 修全部 error、逐条结论 warn；`design_capture` 能截图就逐张看，`CAPTURE_UNAVAILABLE` 就用 contact-sheet.html 请用户确认。**门：无 error；每条 warn 有结论；未看的明确声明。**
 5. **交付**：新世界/体系变更写 `DESIGN.md` + tokens 唯一来源；写清选了什么方向、关键 token、已知限制、下一步。**门：有 DESIGN.md 或交付说明。**
 
-硬法则见 `ui-craft/SKILL.md` §4；最常踩的坑是：方向写成形容词、等大卡片堆砌、紫蓝渐变+玻璃+发光、只在 1440 成立、只有 happy path。
+硬法则见 `ui-craft/METHOD.md` §4；最常踩的坑是：方向写成形容词、等大卡片堆砌、紫蓝渐变+玻璃+发光、只在 1440 成立、只有 happy path。
 
 ## B. 粗选（方向选择）
 
@@ -107,7 +105,9 @@ V0.2 闸门：
 
 ## D. PPT 交付（deck 工具）
 
-现在有 `deck_check` / `deck_export` / `deck_render`，但**内容仍由你写**：本插件不生成页面内容，只负责质检、导出、渲染。前置条件是能找到 ppt-master 技能目录（`config.pptMasterDir` 或 env `PPT_MASTER_DIR`，默认会找工作区 `_sources/ppt-master-main/...`）和 Python；渲染还需要 DSH 自带的 LibreOffice Kit（`dsoffice`）。
+现在有 `deck_check` / `deck_export` / `deck_render`，但**内容仍由你写**：本插件不生成页面内容，只负责质检、导出、渲染。
+
+**先查依赖，再承诺。** 前置条件是能找到 ppt-master 技能目录（`config.pptMasterDir` 或 env `PPT_MASTER_DIR`；默认扫描 `skills/ppt-master` 与 `_sources/<任意名>/skills/ppt-master`）和能 import pptx 的 Python；渲染还需要 DSH 自带的 LibreOffice Kit（`dsoffice`）。缺依赖时 `deck_check` 会返回结构化 `missing[]`，按 `references/deck-handoff.md` 手工兜底，不要先说「能做」。
 
 流程：
 
@@ -116,6 +116,20 @@ V0.2 闸门：
 3. `deck_export({ project })` → 返回 pptxPath / bytes / slides / postflight；导出 shim 已修掉沙箱下临时目录不可写的问题。
 4. `deck_render({ pptx })` → 返回 pdfPath / pagesDir / pageCount / images / missingFonts；**逐页看 PNG**，没看就不说「已检查」。
 5. 找不到 ppt-master / Python / 渲染器时，工具返回中文原因；按 `references/deck-handoff.md` 的手工兜底继续，不要假装工具成功。
+
+## 工具不可用时的兜底
+
+本技能默认跑在 DSH 插件环境；若宿主没有注册 `design_* / probe_* / deck_*`，按本文件所在目录（`skills/design-kit/`）直接跑零依赖脚本：
+
+```bash
+node ui-craft/scripts/design-tokens.mjs --name <slug> --hue <0-360> --mood editorial --mode both --out <project>/tokens
+node ui-craft/scripts/design-lint.mjs <entry-or-dir> --json
+node ui-craft/scripts/capture.mjs <entry.html> --out .review
+node probe-kit/shortlist.mjs <init|add|decide|final|report|verify> ...
+node probe-kit/probe.mjs <demo|build|append|review|apply> ...
+```
+
+`deck_*` 没有脚本等价物，按 `references/deck-handoff.md` 手工兜底；不要假装调用了不存在的工具。
 
 ## 工具清单
 
@@ -136,8 +150,8 @@ V0.2 闸门：
 
 ## 资源地图
 
-- `ui-craft/SKILL.md`：完整 UI 流程、硬法则、失败模式。
-- `references/probe-kit-SKILL.md`：粗选/精调完整命令、归因、证据口径。
+- `ui-craft/METHOD.md`：完整 UI 流程、硬法则、失败模式。
+- `references/probe-kit-method.md`：粗选/精调完整命令、归因、证据口径。
 - `references/deck-handoff.md`：ppt-master Quick 路线、deck_* 用法与手工兜底。
 - `deck/export_shim.py`：沙箱安全的导出包装（替换上游临时目录创建逻辑）。
 - `ui-craft/references/`：world / type / color / layout / motion / states / copy / audit / design-system / product-ui / craft-floor / modes。

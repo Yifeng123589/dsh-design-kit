@@ -1,7 +1,7 @@
 {
   "name": "dsh-design-kit",
-  "version": "0.1.4",
-  "description": "DSH 统一设计交付插件：一个 design-kit 技能入口，路由到造页面 / 选方向 / 调参数 / 出 PPT；合并 ui-craft 与 probe-kit 的 5 个零依赖工具，加上 deck_check / deck_export / deck_render 与对话内三栏粗选预览。",
+  "version": "0.1.5",
+  "description": "DSH 统一设计交付插件：1 个 design-kit 技能 + 10 个工具（design×3、probe×4、deck×3），路由到造页面 / 选方向 / 调参数 / 出 PPT。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -13,6 +13,7 @@
   },
   "files": [
     "lib",
+    "assets",
     "skills/design-kit/SKILL.md",
     "skills/design-kit/.sync-manifest.json",
     "skills/design-kit/references",

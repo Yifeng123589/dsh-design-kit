@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.4`
+- 版本：`0.1.5`
 - 技能：`design-kit`（1 个）
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
 - 客户端：DSH Web 端会把 `probe_shortlist_preview` 直接渲染成**对话内三栏 iframe 预览**，选择后自动发回结构化动作
@@ -64,7 +64,7 @@ pnpm add ../path/to/dsh-design-kit
 
 重启 DSH。装好后会同时出现技能 `design-kit` 与 10 个工具。
 
-> **A11 vendored 快照说明**：本包是 vendored 快照——`skills/design-kit/` 下除手写区外的 `ui-craft` / `probe-kit` 实现由 `sync-kit.mjs` 从仓库源目录同步而来，`.sync-manifest.json` 记录计数。**只拿 zip 无法重新 sync**（没有源目录）；要更新实现请在源码仓库改 `ui-craft/` / `probe-kit/` 后跑 `node sync-kit.mjs`，发布前强制 sync + 测试。手写区：`SKILL.md`、`references/deck-handoff.md`、`deck/export_shim.py`。
+> **A11 vendored 快照说明**：本包是 vendored 快照——`skills/design-kit/` 下除手写区外的 `ui-craft` / `probe-kit` 实现由维护者在源码仓库同步后打包，`.sync-manifest.json` 记录计数。**分发包不含 `sync-kit.mjs`，只拿 zip 无法重新 sync**；要更新实现请在源码仓库改 `ui-craft/` / `probe-kit/` 后重新同步并跑测试。手写区：`SKILL.md`、`references/deck-handoff.md`、`deck/export_shim.py`。
 
 ### 从旧插件迁移
 
@@ -171,7 +171,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 5. **交付**：写 `DESIGN.md`（模板在 `skills/design-kit/ui-craft/templates/DESIGN.md`）+ 交付说明（方向、关键 token、已知限制、下一步）。
    - **门**：有 DESIGN.md 或交付说明。
 
-完整方法、12 条硬法则与失败模式：`skills/design-kit/ui-craft/SKILL.md` 与其 `references/`（world / type / color / layout / motion / states / copy / audit / design-system 等）。
+完整方法、12 条硬法则与失败模式：`skills/design-kit/ui-craft/METHOD.md` 与其 `references/`（world / type / color / layout / motion / states / copy / audit / design-system 等）。
 
 ### 4.2 粗选：有关系的 3 个，删或待定
 
@@ -228,7 +228,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 - **项目授权**：`--context-file` 可带 `authorization: { "question": "…", "scope": "spectrum_only" }`；只回答值不值得花预算，不证明轴成立、不开放插值。
 - 归因必须写四字段：`--assumption` / `--falsified-by` / `--boundary` / `--confidence`。
 
-完整口径见 `skills/design-kit/references/probe-kit-SKILL.md` 与 `skills/design-kit/probe-kit/PROTOCOL-V0.2.md`。
+完整口径见 `skills/design-kit/references/probe-kit-method.md` 与 `skills/design-kit/probe-kit/PROTOCOL-V0.2.md`。
 
 ### 4.4 PPT：deck_* 工具（质检 → 导出 → 渲染）
 
@@ -279,7 +279,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 - **B4 deck 发现去硬编码**：不再写死 `_sources/ppt-master-main/ppt-master-main`；按「显式配置 → 标准 env → 工作区/祖先目录常见布局」发现任意解压名。Python 增加 `PYTHON`、`runtimes/`；渲染器增加 `DSH_APP_ROOT` / `DSH_RESOURCES_DIR` / `DSH_LIBREOFFICE_KIT_CLI`。
 - **B5 preview 载荷瘦身**：三份候选 HTML 改为 gzip+base64（`htmlGzip`），客户端用 `DecompressionStream` 解压；本机实测 25.7KB → 11.4KB（约 44%），不再把原始 HTML 塞进工具结果。
 - **B9 chip 归因弱先验**：删除理由 chip 明确为自我报告弱先验、不是证明；`capability-gap` 增加 `reasonSignal: self-report` 与 `evidenceStrength`，capability 路由要求先看页面事实核查（corroborated）。
-- **B10 发布物矩阵**：runtime（59 文件 / 约 323 KB，不含 test/证据/QA）/ fixtures（约 55 KB）/ docs（约 99 KB）；`dist/RELEASE-README.md` + `SHA256SUMS.txt` 记录矩阵和哈希；npm tarball 也是 runtime-only。
+- **B10 发布物矩阵**：runtime（59 文件 / 约 323 KB，不含 test/证据/QA）/ fixtures（约 55 KB）/ docs（约 99 KB）；`dist/RELEASE-README.md` + `SHA256SUMS.txt` 记录矩阵和哈希；npm tarball 是运行时 + 文档，不含 test/证据/QA。
 - **A6 启动健康检查**：`apply()` 汇总「技能 x/1、工具 n/10、缺失清单」；正常写 info，异常写 warn 汇总，并暴露 `getRegistrationHealth()` / `ctx.designKitHealth`。
 - **A7 JSON 输出契约**：`design-lint --json` 输出 `__DESIGN_KIT_JSON__` 标记行；`parseJsonOutput` 只认标记行或最后一行纯 JSON，不再从首个 `{` 切到末尾 `}`。
 - **A8 UI↔CLI 契约测试**：`test/shortlist-ui-contract.test.mjs` 锁 preview → persistAction → `shortlist-decisions/1` / `shortlist-choice/1` 字段，并对比 UI 与 CLI 的 reason chips（实际抓出并修复缺失的 `no-preference`）。
@@ -293,14 +293,14 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 - **已在真实 DSH 宿主实测**：0.2.1-rc.5 里 A–E 全部通过（工具成功路径 + 防覆盖），证据见 `test/ACCEPTANCE.md`；仍缺 PowerPoint/WPS 里的逐页排版确认，旧 0.1.x 宿主兼容性未测。
 - **`design_capture` 可能截图不可用**：会降级到 `contact-sheet.html`，不会假装看过渲染。
 - **粗选/精调的证据强度有限**：关系标签与 HTML 互异是工具能查的；删除理由是用户 chip，不是量化测量；r5/r6 的 JND 是估值，结论按弱证据处理。
-- **旧插件未删除**：`dsh-ui-craft` 与 `dsh-probe-kit` 仍在仓库里供对照/回退，但不要三个同时安装。
+- **旧插件不在本仓库**：`dsh-ui-craft` 与 `dsh-probe-kit` 仅由作者在本地源仓库维护，不随本仓库发布；不要与本插件同时安装。
 
 ---
 
 ## 7. 开发与验收
 
 ```bash
-node sync-kit.mjs          # 从 ../ui-craft 与 ../probe-kit 同步实现/参考/证据
+node scripts/release.mjs   # 重建 dist 发布物（runtime / fixtures / docs）
 node test/apply.mock.mjs   # 假 ctx 注册测试（33 项）
 node test/shortlist-ui-contract.test.mjs  # UI↔CLI 契约（4 项）
 node skills/design-kit/probe-kit/test/axis-lock.test.mjs  # A4 锁验证/假轴 5 项
@@ -315,9 +315,9 @@ node skills/design-kit/probe-kit/test/regression.test.mjs  # 包内回归（10/1
   - `fixtures`：测试、真实回合证据与回归夹具；
   - `docs`：验收、QA、粗选/精调协议与参考；
   - `dist/RELEASE-README.md` + `SHA256SUMS.txt` 列出三件的大小与哈希；
-  - 兼容旧文件名 `dsh-design-kit-v0.1.4.zip` 与 runtime 内容相同；npm tarball 也是 runtime-only。
+  - 兼容旧文件名 `dsh-design-kit-v0.1.5.zip` 与 runtime 内容相同；npm tarball 带 docs，但不含 test/证据/QA。
 - 安装只用 runtime；fixtures/docs 不要装进 DSH。
-- 手写区：`skills/design-kit/SKILL.md`、`skills/design-kit/references/deck-handoff.md`、`skills/design-kit/deck/export_shim.py`；同步区不要手改，改源目录后重新 sync。
+- 手写区：`skills/design-kit/SKILL.md`、`skills/design-kit/references/deck-handoff.md`、`skills/design-kit/deck/export_shim.py`；同步区不要手改，改源目录后由维护者重新同步并打包。
 - 同步清单：`skills/design-kit/.sync-manifest.json`（ui-craft 17 / probe-kit 40 / references 2）。
 - 验收记录：`test/ACCEPTANCE.md`（真实宿主 A–E 结果）；四轮独立 QA 报告：`test/qa-design-kit.md`、`test/qa-design-kit-followup.md`、`test/qa-design-kit-final.md`、`test/qa-deck-tools.md`。
 

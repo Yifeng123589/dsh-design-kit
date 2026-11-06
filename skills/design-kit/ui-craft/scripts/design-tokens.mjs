@@ -1186,6 +1186,10 @@ function writeOutputs(model, outDir) {
   const cssPath = path.join(outDir, 'tokens.css');
   const jsonPath = path.join(outDir, 'tokens.json');
   const previewPath = path.join(outDir, 'tokens-preview.html');
+  // 不静默丢旧产物：覆盖前先留 .bak，便于回退。
+  for (const target of [cssPath, jsonPath, previewPath]) {
+    if (fs.existsSync(target)) fs.copyFileSync(target, `${target}.bak`);
+  }
   fs.writeFileSync(cssPath, cssText, 'utf8');
   fs.writeFileSync(jsonPath, `${JSON.stringify(json, null, 2)}\n`, 'utf8');
   fs.writeFileSync(previewPath, preview, 'utf8');

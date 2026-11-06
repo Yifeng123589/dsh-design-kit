@@ -26,8 +26,9 @@ import {
 import { createRoundSession, createFinalSession, inlineSource, SHORTLIST_VERSION } from './lib/shortlist-recorder.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_LEDGER = join(HERE, 'ledger', 'ledger.jsonl');
-const DEFAULT_OUT = join(HERE, 'shortlist-runs');
+// 默认产物写调用者 cwd，不写安装目录，避免只读安装或污染插件包。
+const DEFAULT_LEDGER = join(process.cwd(), 'probe-kit-ledger', 'ledger.jsonl');
+const DEFAULT_OUT = join(process.cwd(), 'shortlist-runs');
 const ROUND_TEMPLATE = join(HERE, 'templates', 'shortlist.html');
 const FINAL_TEMPLATE = join(HERE, 'templates', 'shortlist-final.html');
 const RECORDER_PATH = join(HERE, 'lib', 'shortlist-recorder.mjs');
@@ -305,7 +306,7 @@ function cmdInit(args) {
   if (typeof raw.title !== 'string' || raw.title === '') throw new CliError('brief.title 必须是非空字符串');
   if (typeof raw.prompt !== 'string' || raw.prompt === '') throw new CliError('brief.prompt 必须是非空字符串');
   const cap = capOrThrow(raw.cap);
-  const outRoot = resolve(HERE, typeof args.flags.out === 'string' ? args.flags.out : DEFAULT_OUT);
+  const outRoot = resolve(process.cwd(), typeof args.flags.out === 'string' ? args.flags.out : DEFAULT_OUT);
   const baseId =
     typeof args.flags['run-id'] === 'string' && args.flags['run-id'] !== ''
       ? args.flags['run-id']
@@ -969,7 +970,7 @@ async function cmdDemo(args) {
     throw new CliError('--scenario 只能是 success / gap / both', 2);
   }
   const scenarios = scenarioFlag === 'success' || scenarioFlag === 'gap' ? [scenarioFlag] : ['success', 'gap'];
-  const outRoot = resolve(HERE, typeof args.flags.out === 'string' ? args.flags.out : DEFAULT_OUT);
+  const outRoot = resolve(process.cwd(), typeof args.flags.out === 'string' ? args.flags.out : DEFAULT_OUT);
   const ledgerPath = resolveLedgerPath(args.flags);
   const briefBase = {
     title: '山径书店 · 首页方向',

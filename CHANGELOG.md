@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.5
+
+### Fixed
+
+- Windows 克隆 CRLF 导致 `verify` 误报「页面被篡改」：证据哈希与页面内容比较先归一化行尾；新增 `.gitattributes`（`* text=auto eol=lf`）。
+- `npm test` 不再把「沙箱外 CLI 正常执行」当失败：EPERM 断言改为成功或带 `spawnError` 的沙箱拦截；smoke 用 `package.json` 的 `name` 判断布局，不依赖克隆目录名。
+- 去掉 `ui-craft/SKILL.md` 与 `references/probe-kit-SKILL.md` 的伪 frontmatter，改为 `ui-craft/METHOD.md` / `references/probe-kit-method.md`，分发物只保留一份真正可注册的 `SKILL.md`。
+- 入口 SKILL 增加「工具不可用时的脚本兜底」；README 首行声明本包是 DSH 插件，不是通用 Skill 包。
+- 入口 D 路线增加「先查依赖再承诺」；修正 `_sources` 发现路径文档漂移。
+- `cordis.patch.yml` 与 package description 统一为 10 个工具；删除 SKILL 里过期的 `version` 字段。
+- CLI 默认台账/回合目录改到调用者 cwd，不再写安装目录；`design-tokens` 覆盖前写入 `.bak`。
+- 路径牢笼使用 realpath（含不存在目标的最近存在祖先）解析，修复 Windows 8.3 短名误判；候选 HTML 改用 `isWithinRoot`。
+- 清理 `shortlist-ui` 空 `finally`、sync-kit 旧文案与 README-FULL 旧插件描述。
+
 ## 0.1.4
 
 ### Fixed

@@ -41,7 +41,18 @@ function findPluginRoot(start) {
   return null;
 }
 const PLUGIN = findPluginRoot(HERE) ?? join(ROOT, 'dsh-probe-kit');
-const PLUGIN_NAME = PLUGIN.split(/[\\/]/).pop();
+// N2：插件布局用 package.json 的 name 判断，不依赖克隆目录名。
+// 仓库换个文件夹名（如 dsh-design-kit-main）时不应误判成旧布局。
+function pluginPackageName(dir) {
+  try {
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    if (pkg && typeof pkg.name === 'string' && pkg.name !== '') return pkg.name;
+  } catch {
+    // 回退到目录名
+  }
+  return dir.split(/[\\/]/).pop();
+}
+const PLUGIN_NAME = pluginPackageName(PLUGIN);
 
 const results = [];
 function check(name, fn) {

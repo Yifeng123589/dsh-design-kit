@@ -104,13 +104,13 @@ function walkMarkdown(dir) {
 await check('统一技能与两份实现已同步', async () => {
   assert(skillReady, '缺少 skills/design-kit/SKILL.md');
   const required = [
-    'ui-craft/SKILL.md',
+    'ui-craft/METHOD.md',
     'ui-craft/scripts/design-tokens.mjs',
     'ui-craft/scripts/design-lint.mjs',
     'ui-craft/scripts/capture.mjs',
     'ui-craft/references/world.md',
     'ui-craft/templates/DESIGN.md',
-    'references/probe-kit-SKILL.md',
+    'references/probe-kit-method.md',
     'references/deck-handoff.md',
     'deck/export_shim.py',
     'probe-kit/shortlist.mjs',
@@ -134,7 +134,7 @@ await check('统一技能与两份实现已同步', async () => {
 
 await check('同步清单存在且计数与磁盘一致', async () => {
   const manifestPath = join(skillDir, '.sync-manifest.json');
-  assert(existsSync(manifestPath), '缺少 .sync-manifest.json，先运行 node sync-kit.mjs');
+  assert(existsSync(manifestPath), '缺少 .sync-manifest.json，请重装插件或由维护者运行 node sync-kit.mjs 重新生成');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   assert(manifest.skill === 'design-kit', 'manifest.skill 应为 design-kit');
   assert(manifest.uiCraft === walkFiles(join(skillDir, 'ui-craft')).length, 'uiCraft 计数与磁盘不一致');
@@ -515,7 +515,16 @@ await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload',
       { payload: JSON.stringify({ ...basePayload, uiToken: result.uiToken }) },
       { cwd: tmp },
     );
-    assert(accepted.ok === false, '沙箱内 CLI 启动应失败（EPERM），但已通过令牌与 payload 校验');
+    // N2：普通终端里子进程能正常执行，只有宿主沙箱拦截时才允许 ok=false。
+    // 不能把「功能成功」写成失败，否则 npm test 在用户机器上必红。
+    const sandboxBlocked =
+      accepted.ok === false &&
+      accepted.spawnError != null &&
+      /EPERM|EACCES/.test(String(accepted.spawnError));
+    assert(
+      accepted.ok === true || sandboxBlocked,
+      'UI action 应成功执行 CLI；仅当宿主沙箱拦截子进程时允许 ok=false 且必须带 spawnError',
+    );
     assert(existsSync(tokenFile) === false, '令牌应在调用 CLI 前被一次性消费');
   } finally {
     rmSync(tmp, { recursive: true, force: true });

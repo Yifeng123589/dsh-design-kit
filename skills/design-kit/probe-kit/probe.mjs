@@ -13,7 +13,8 @@ import * as ledger from './lib/ledger.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PRESENTER_VERSION = '1';
-const DEFAULT_LEDGER = join(HERE, 'ledger', 'ledger.jsonl');
+// 默认台账写调用者 cwd，不写安装目录。
+const DEFAULT_LEDGER = join(process.cwd(), 'probe-kit-ledger', 'ledger.jsonl');
 const DEFAULT_CONTEXT = { projectType: 'demo', audience: 'owner', device: 'desktop' };
 const CONFIDENCE_LABELS = ['猜的', '一般', '比较确定', '非常确定'];
 
@@ -25,8 +26,14 @@ class CliError extends Error {
 }
 
 // ---------- 小工具 ----------
+// N1：Git for Windows 默认 core.autocrlf=true 时，LF fixture 会被检出为 CRLF。
+// 证据哈希与页面内容比较都必须先归一化行尾，否则 Windows 克隆会误报「篡改」。
+function normalizeEol(text) {
+  return String(text).replace(/\r\n?/g, '\n');
+}
+
 function sha256Short(text, length = 12) {
-  return createHash('sha256').update(text).digest('hex').slice(0, length);
+  return createHash('sha256').update(normalizeEol(text)).digest('hex').slice(0, length);
 }
 
 function mulberry32(seed) {
@@ -422,7 +429,7 @@ function verifyRun(runDir) {
         }
         if (template !== null) {
           const expectedHtml = template.replace(axis.placeholder, axis.render(variant.value));
-          if (position.html !== expectedHtml) {
+          if (normalizeEol(position.html) !== normalizeEol(expectedHtml)) {
             problems.push(`位置 ${position.pos} 的页面内容与清单数值不一致（疑似被篡改）`);
           }
         }

@@ -1,12 +1,4 @@
----
-name: ui-craft
-description: "Use when the user wants to design, redesign, build, critique, audit, polish, or extend a frontend interface: landing pages, marketing sites, dashboards, admin panels, product UI, components, forms, onboarding, empty states, docs, or portfolios. Covers visual direction, layout, typography (including Chinese/CJK typography), color, motion, UX copy, responsive behavior, states, and design systems. Also for making bland UI bolder, loud UI calmer, or auditing UI for AI-generated sameness. 用于设计/重构/评审/打磨前端界面、网页、落地页、官网、后台、仪表盘、组件、表单、设计系统，或排查「AI 味」界面。Not for backend-only or non-UI tasks."
-version: 0.1.0
-license: MIT
-user-invocable: true
----
-
-# UI Craft · 界面设计
+# UI Craft · 界面设计（方法文档）
 
 这个技能让你像有作品集的设计师那样工作：有观点、懂手艺、能收尾。交付标准是「能上线」，不是「能演示」。
 
@@ -63,7 +55,7 @@ user-invocable: true
 ### 第 1 步：定世界
 
 1. 判断既有什么：读 `DESIGN.md`、tokens、组件、代表性页面。重构保留产品真实、内容、功能，换掉旧视觉；既有体系内的扩展只解决新增部分，不改世界。
-2. 问 2 到 3 个会改变结果的问题：谁来看、要相信或完成什么、什么算成功、什么不能动。不要问 CSS 数值，不要问「喜欢什么风格」。有提问工具就用（DSH 里是 `ask_user_question`），没有就用一句话问。
+2. 问 2 到 3 个会改变结果的问题：谁来看、要相信或完成什么、什么算成功、什么不能动。不要问 CSS 数值，不要问「喜欢什么风格」。有提问工具就用，没有就用一句话问。
 3. 写一句话机制：这个产品靠什么机制成立、谁在什么场景用、它属于哪个文化世界。
 4. 从那个世界列 7 个具体候选（视觉体系、物件、场所、仪式、出版物、图形传统），每条写「为什么共鸣」和「长什么样」。排除这个品类一定会出现的默认样子。
 5. 收敛成 1 个方向加 2 个备选，写方向契约六字段：`THESIS` / `OWN-WORLD` / `STORY` / `FIRST VIEWPORT` / `FORM` / `FINISH`。
@@ -76,10 +68,10 @@ user-invocable: true
 ### 第 2 步：定系统
 
 1. 先定色彩策略（克制 / 承诺 / 全彩 / 浸染，见 [color.md](references/color.md)），再选具体颜色。
-2. 生成 tokens 作为测量与实现的地基：
+2. 生成 tokens 作为测量与实现的地基（以下命令从 `skills/design-kit/` 运行）：
 
 ```bash
-node <skill-dir>/scripts/design-tokens.mjs --name <slug> --hue <0-360> \
+node ui-craft/scripts/design-tokens.mjs --name <slug> --hue <0-360> \
   --mood calm|bold|warm|cool|editorial|tech --mode both --out <project>/tokens
 ```
 
@@ -106,14 +98,14 @@ node <skill-dir>/scripts/design-tokens.mjs --name <slug> --hue <0-360> \
 1. 量化检查：
 
 ```bash
-node <skill-dir>/scripts/design-lint.mjs <entry-or-dir> --json
+node ui-craft/scripts/design-lint.mjs <entry-or-dir> --json
 ```
 
 修全部 `error`；`warn` 逐条给结论（改掉，或说明为什么保留）。规则含义见 [audit.md](references/audit.md)。
 2. 视觉检查：
 
 ```bash
-node <skill-dir>/scripts/capture.mjs <entry.html> --out .review
+node ui-craft/scripts/capture.mjs <entry.html> --out .review
 ```
 
 - 返回截图：逐张打开看，至少看桌面与移动两个宽度，并驱动交互态，查重叠、裁切、溢出、错位。

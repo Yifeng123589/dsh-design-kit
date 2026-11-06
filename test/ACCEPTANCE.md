@@ -2,6 +2,7 @@
 
 > **验收结果（2026-11-04，DSH 0.2.1-rc.5）**：A–E **全部通过**（直接调用工具，不是底层命令替代）。
 > 兼容修复：`package.json` 去 BOM（否则整个 bundle 被 loader 跳过）、10 个工具补 `output` 契约（`lib/tool-output.js`）、相对路径改用会话 `workingDirectory`（`lib/cwd.js`）；mock 扩到 33/33。
+> **0.1.5 复审修复（2026-11-05）只有本地自动化验证**：CRLF 克隆回归、重命名目录 smoke、33/33 mock；尚未重启真实宿主复验，也未在 PowerPoint/WPS 目检。真实宿主结论仍以 0.1.0–0.1.4 的 A–E 为准，0.1.5 需按下面步骤再跑一轮。
 > 下面保留复验步骤，本工作区已按此完成一轮；最新安装状态：profile 已 link 本插件并加入 bundles。
 
 目标：在真实 DSH 宿主里确认 `dsh-design-kit` 的 1 个技能 + 10 个工具能加载、路由并真正执行成功路径。

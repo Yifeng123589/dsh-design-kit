@@ -2,8 +2,9 @@
 #
 # 安装即同时注册：
 #   1. 技能 design-kit（统一入口：造页面 / 选方向 / 调参数 / 出 PPT）
-#   2. 工具 design_lint / design_tokens / design_capture / probe_shortlist / probe_measure
-#      + deck_check / deck_export / deck_render
+#   2. 10 个工具：design_lint / design_tokens / design_capture /
+#      probe_shortlist / probe_shortlist_preview / probe_shortlist_ui_action / probe_measure /
+#      deck_check / deck_export / deck_render
 #
 # 插件自带空配置，绝不弄崩启动；无需账号或密钥。可选配置：
 #
