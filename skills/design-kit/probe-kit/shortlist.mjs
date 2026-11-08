@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// shortlist CLI：粗选（世界级候选）→ 删/待定 → 待定到 3 个 → 三选一 → 归因/精调交接。
+// shortlist CLI：粗选（世界级候选）→ generate 内容槽 → 删/待定 → 待定到 3 个 → 三选一 → 归因/精调交接。
 // 零依赖，Node >= 18。规范见 SHORTLIST-SPEC.md。
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -300,7 +300,7 @@ function finishWithCapabilityGap({ runDir, brief, rounds, state, extraRejectReas
 }
 
 // ---------- 命令 ----------
-function cmdInit(args) {
+async function cmdInit(args) {
   const briefPath = requireFlag(args.flags, 'brief', '用法：node shortlist.mjs init --brief <brief.json>');
   const raw = readJson(resolve(process.cwd(), briefPath), 'brief');
   if (typeof raw.title !== 'string' || raw.title === '') throw new CliError('brief.title 必须是非空字符串');
@@ -321,12 +321,22 @@ function cmdInit(args) {
   }
   mkdirSync(runDir, { recursive: true });
   const now = nowIso();
+  let content;
+  if (raw.content !== undefined) {
+    const worlds = await import('./lib/worlds.mjs');
+    try {
+      content = worlds.normalizeContent(raw.content);
+    } catch (error) {
+      throw new CliError(`brief.content 不合格：${error.message}`, 1);
+    }
+  }
   const brief = {
     schema: 'shortlist-brief/1',
     runId,
     title: raw.title,
     prompt: raw.prompt,
     context: raw.context ?? {},
+    ...(content ? { content } : {}),
     cap,
     createdAt: now,
   };
@@ -360,8 +370,8 @@ function cmdInit(args) {
   console.log(`\n已创建粗选回合 ${runId}`);
   console.log(`  目录: ${rel}`);
   console.log(`  上限: ${cap.maxRounds} 轮 × ${cap.perRound} 个 = ${cap.maxRounds * cap.perRound} 个候选，待定满 ${cap.maxPending} 个进入终选`);
-  console.log('\n下一步：生成第 1 轮候选（每轮用独立上下文），然后：');
-  console.log(`  node shortlist.mjs add --run ${rel} --candidates <candidates.json> --context-token <fresh-token>`);
+  console.log('\n下一步：先 generate 再 add（三页共用内容槽，不要手写 HTML），然后 preview：');
+  console.log(`  node shortlist.mjs generate --run ${rel} --round 1 --add --context-token <fresh-token>`);
   return 0;
 }
 
@@ -593,8 +603,8 @@ function cmdDecide(args) {
   }
 
   console.log(`\n第 ${round} 轮已处理：待定 ${state.pending.length}/${cap.maxPending}，已生成 ${generated} 个`);
-  console.log(`\n下一步：生成第 ${round + 1} 轮候选（务必换独立上下文），然后：`);
-  console.log(`  node shortlist.mjs add --run ${relative(process.cwd(), runDir) || runDir} --candidates <candidates.json> --context-token <fresh-token>`);
+  console.log(`\n下一步：generate 第 ${round + 1} 轮（换独立上下文；不要手写三页），然后 preview：`);
+  console.log(`  node shortlist.mjs generate --run ${relative(process.cwd(), runDir) || runDir} --round ${round + 1} --add --context-token <fresh-token>`);
   return 0;
 }
 
@@ -1169,6 +1179,117 @@ async function cmdDemo(args) {
   return 0;
 }
 
+async function cmdGenerate(args) {
+  let worlds;
+  try {
+    worlds = await import('./lib/worlds.mjs');
+  } catch (error) {
+    throw new CliError(`generate 需要 lib/worlds.mjs：${error.message}`, 1);
+  }
+  const flags = args.flags;
+  let brief;
+  if (typeof flags.brief === 'string') {
+    brief = readJson(resolve(process.cwd(), flags.brief), 'brief');
+  } else if (typeof flags.run === 'string') {
+    brief = readJson(join(resolve(process.cwd(), flags.run), 'brief.json'), 'brief.json');
+  } else {
+    throw new CliError('用法：node shortlist.mjs generate --brief <brief.json> [--round 1] [--out candidates/r1.json]', 2);
+  }
+  let content;
+  if (typeof flags.content === 'string') {
+    content = readJson(resolve(process.cwd(), flags.content), '内容槽');
+  }
+  const hasRound = typeof flags.round === 'string' && flags.round !== '';
+  let planRound = hasRound ? Number(flags.round) : null;
+  if (hasRound && (!Number.isInteger(planRound) || planRound < 1 || planRound > FIXED_CAP.maxRounds)) {
+    throw new CliError(`--round 需要 1 到 ${FIXED_CAP.maxRounds} 的整数`, 2);
+  }
+  const relationFlag = typeof flags.relation === 'string' ? flags.relation : '';
+  const family = typeof flags.family === 'string' ? flags.family : '';
+  const axis = typeof flags.axis === 'string' ? flags.axis : '';
+  if (relationFlag !== '' && !['lineage', 'contrast'].includes(relationFlag)) {
+    throw new CliError('--relation 只能是 lineage 或 contrast', 2);
+  }
+  if (relationFlag === 'lineage' && axis !== '') throw new CliError('lineage 轮不要传 --axis', 2);
+  if (relationFlag === 'contrast' && family !== '') throw new CliError('contrast 轮不要传 --family', 2);
+  let relationPlan;
+  if (relationFlag !== '' || family !== '' || axis !== '') {
+    const relation = relationFlag !== '' ? relationFlag : (family !== '' ? 'lineage' : 'contrast');
+    relationPlan = {
+      relation,
+      ...(family !== '' ? { family } : {}),
+      ...(axis !== '' ? { axis } : {}),
+    };
+  }
+  const wantAdd = flags.add === true || flags.add === 'true';
+  let expectedRound = null;
+  if (wantAdd) {
+    if (typeof flags.run !== 'string' || flags.run === '') throw new CliError('generate --add 需要 --run <dir>', 2);
+    const runDir = resolve(process.cwd(), flags.run);
+    const { rounds, state } = loadRun(runDir);
+    if (state.finished === true) throw new CliError('该粗选已结束，不能再生成候选', 1);
+    expectedRound = (rounds.rounds?.length ?? 0) + 1;
+    if (planRound === null && !relationPlan) planRound = expectedRound;
+  }
+  let payload;
+  try {
+    payload = worlds.generateRound({
+      brief,
+      ...(content !== undefined ? { content } : {}),
+      ...(relationPlan ? { relationPlan } : {}),
+      ...(planRound !== null ? { round: planRound } : {}),
+    });
+  } catch (error) {
+    throw new CliError(error.message, error instanceof RangeError ? 2 : 1);
+  }
+  if (wantAdd && payload.round !== undefined && expectedRound !== null && payload.round !== expectedRound) {
+    throw new CliError(`该回合下一轮是第 ${expectedRound} 轮，这份世界计划属于第 ${payload.round} 轮`, 1);
+  }
+  const relation = {
+    relation: payload.relation,
+    ...(payload.family ? { family: payload.family } : {}),
+    ...(payload.axis ? { axis: payload.axis } : {}),
+  };
+  const validation = validateCandidates(payload.candidates, FIXED_CAP, relation);
+  if (!validation.ok) {
+    throw new CliError(`生成结果不能入库：\n  - ${validation.errors.join('\n  - ')}`, 1);
+  }
+  const fileRound = payload.round ?? planRound ?? 1;
+  const outPath = typeof flags.out === 'string' && flags.out !== ''
+    ? resolve(process.cwd(), flags.out)
+    : resolve(
+      process.cwd(),
+      typeof flags.run === 'string' ? flags.run : '.',
+      'candidates',
+      `r${fileRound}.json`,
+    );
+  writeJson(outPath, payload);
+  const relOut = relative(process.cwd(), outPath) || outPath;
+  const relationLabel = `${payload.relation}${payload.family ? ' / ' + payload.family : ''}${payload.axis ? ' / ' + payload.axis : ''}`;
+  console.log(`\n已生成候选（${relationLabel}，计划轮次 ${fileRound}）`);
+  console.log(`  文件: ${relOut}`);
+  console.log(`  内容槽: ${payload.content.title} · ${payload.contentHash}`);
+  console.log(`  世界: ${payload.candidates.map((item) => item.id).join('、')}`);
+  console.log('  三页文案相同，只换视觉世界。generate 不写 decide、不写台账。');
+  if (!wantAdd) {
+    const runHint = typeof flags.run === 'string'
+      ? (relative(process.cwd(), resolve(process.cwd(), flags.run)) || flags.run)
+      : '<run>';
+    console.log('\n下一步：add 入库后再 preview，不要另写一份 HTML：');
+    console.log(`  node shortlist.mjs add --run ${runHint} --candidates ${relOut} --context-token <fresh-token>`);
+    return 0;
+  }
+  return cmdAdd({
+    _: ['add'],
+    flags: {
+      run: flags.run,
+      candidates: outPath,
+      ...(typeof flags['context-token'] === 'string' ? { 'context-token': flags['context-token'] } : {}),
+      ...(typeof flags.ledger === 'string' ? { ledger: flags.ledger } : {}),
+    },
+  });
+}
+
 function cmdStatus(args) {
   const ledgerPath = resolveLedgerPath(args.flags);
   const events = readLedger(ledgerPath);
@@ -1190,6 +1311,7 @@ function usage() {
 
 用法:
   node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
+  node shortlist.mjs generate --brief <brief.json> | --run <dir> [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
   node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
   node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
   node shortlist.mjs final --run <dir> --choice <file.jsonl>
@@ -1198,21 +1320,24 @@ function usage() {
   node shortlist.mjs status
   node shortlist.mjs demo [--scenario success|gap|both] [--out shortlist-runs]
 
-规则: 每轮 3 个候选，必须声明关系（lineage 同族不同派 / contrast 三档跨族）；每轮最多待定 1 个；最多 4 轮 / 12 个；待定满 3 个三选一；
+规则: 每轮 3 个候选，必须声明关系（lineage 同族不同派 / contrast 三档跨族）；三页锁定同一内容槽、HTML 互异、无外链，否则 add 拒收；
+      每轮最多待定 1 个；最多 4 轮 / 12 个；待定满 3 个三选一；
       用满 12 个或终选「都不行」→ 归因（capability/brief/taste/no-preference）并给出路由，不再生成第 13 个。
+      generate 只写候选 JSON（可选 --add 交给 add 落账）；不写 decide，不自己写台账。
 
 退出码: 0 成功 · 1 校验失败 · 2 参数错误`);
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help']);
+  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add']);
   for (const key of Object.keys(args.flags)) {
     if (!KNOWN_FLAGS.has(key)) throw new CliError(`未知参数 --${key}。用 --help 查看用法。`, 2);
   }
   const command = args._[0];
   const handlers = {
     init: cmdInit,
+    generate: cmdGenerate,
     add: cmdAdd,
     decide: cmdDecide,
     final: cmdFinal,
@@ -1237,6 +1362,7 @@ async function main() {
 // 供测试与复用：直接 import 时不执行 CLI。
 export {
   cmdInit,
+  cmdGenerate,
   cmdAdd,
   cmdDecide,
   cmdFinal,

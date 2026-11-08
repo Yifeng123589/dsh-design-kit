@@ -11,10 +11,12 @@
  *
  * 视觉差异全部落在 tokens（颜色/圆角/字体栈）、layoutClass（5 个布局类之一）、
  * decor（装饰类名）与 decorCss（世界专属 CSS）上。fixtures/worlds/base.html 的
- * 内容与骨架逐字节相同，只替换占位符。
+ * 骨架相同，只替换占位符。内容槽（title / subtitle / bullets[3] / cta / foot）
+ * 由 brief 决定，同一轮三个候选必须共用同一份；不传内容时用山径书店演示文案。
  *
- * 零依赖：只用 node:fs / node:path / node:url。
+ * 零依赖：只用 node:fs / node:path / node:url / node:crypto。
  */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -61,7 +63,52 @@ export const TEMPLATE_PLACEHOLDERS = [
   'LAYOUT_CLASS',
   'DECOR_CLASSES',
   'DECOR_CSS',
+  'TITLE',
+  'SUBTITLE',
+  'BULLET_1',
+  'BULLET_1_META',
+  'BULLET_2',
+  'BULLET_2_META',
+  'BULLET_3',
+  'BULLET_3_META',
+  'CTA',
+  'FOOT',
 ];
+
+/** 不传 content 时的演示文案。只出现在默认渲染里，不写进骨架文件。 */
+export const DEFAULT_CONTENT = Object.freeze({
+  title: '山径书店',
+  subtitle: '在老街二楼，只卖走得动路的书。',
+  bullets: Object.freeze([
+    Object.freeze({ text: '《山中最后一季》', meta: '自然 · 现货' }),
+    Object.freeze({ text: '《山径食谱》', meta: '生活 · 预订' }),
+    Object.freeze({ text: '《夜行笔记》', meta: '文学 · 现货' }),
+  ]),
+  cta: '查看本周书单',
+  foot: '演示内容，非真实书店',
+});
+
+/** 生成源标识。Phase 1 只做参数化世界卡，不是自由生成。 */
+export const WRITER_ID = 'phase1-worlds';
+
+const CONTENT_LIMITS = Object.freeze({
+  title: 40,
+  subtitle: 80,
+  bullet: 36,
+  meta: 16,
+  cta: 16,
+  foot: 40,
+});
+
+/** 与 lib/shortlist.mjs 的 EXTERNAL_PATTERNS 对齐：内容槽里出现这些就不能入库。 */
+const SLOT_EXTERNAL = Object.freeze([
+  /https?:\/\//i,
+  /@import/i,
+  /\bfetch\s*\(/i,
+  /localStorage/i,
+  /\/\//,
+  /\bfile:/i,
+]);
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = join(HERE, '..', 'fixtures', 'worlds', 'base.html');
@@ -870,12 +917,270 @@ export function assertRoundDiversity(roundWorlds) {
   return true;
 }
 
-/** 把一个世界渲染成完整 HTML 字符串：只替换 base.html 的占位符，无随机、无外部资源。 */
-export function renderCandidate(worldInput) {
+function sha256Short(text, length = 16) {
+  return createHash('sha256').update(text).digest('hex').slice(0, length);
+}
+
+function cleanLine(value) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function assertSlotSafe(text, label) {
+  if (text.includes('{{') || text.includes('}}')) {
+    throw new Error(`${label} 不能包含模板占位符括号`);
+  }
+  for (const pattern of SLOT_EXTERNAL) {
+    if (pattern.test(text)) {
+      throw new Error(`${label} 含外部链接或脚本痕迹（${pattern}），不能进入粗选`);
+    }
+  }
+}
+
+function fitSlot(text, max, label, truncate) {
+  if (text.length === 0) throw new Error(`${label} 不能为空`);
+  if (text.length <= max) return text;
+  if (truncate) return text.slice(0, max);
+  throw new Error(`${label} 超过 ${max} 个字符`);
+}
+
+function cloneDefaultContent() {
+  return {
+    title: DEFAULT_CONTENT.title,
+    subtitle: DEFAULT_CONTENT.subtitle,
+    bullets: DEFAULT_CONTENT.bullets.map((item) => ({ text: item.text, meta: item.meta })),
+    cta: DEFAULT_CONTENT.cta,
+    foot: DEFAULT_CONTENT.foot,
+  };
+}
+
+function normalizeBullet(item, index, truncate) {
+  const label = `bullets[${index}]`;
+  if (typeof item === 'string') {
+    return {
+      text: fitSlot(cleanLine(item), CONTENT_LIMITS.bullet, label, truncate),
+      meta: '要点',
+    };
+  }
+  if (item === null || typeof item !== 'object') throw new Error(`${label} 必须是字符串或 { text, meta }`);
+  const text = cleanLine(item.text ?? item.title ?? item.label ?? '');
+  const meta = cleanLine(item.meta ?? item.detail ?? '要点');
+  return {
+    text: fitSlot(text, CONTENT_LIMITS.bullet, `${label}.text`, truncate),
+    meta: fitSlot(meta, CONTENT_LIMITS.meta, `${label}.meta`, truncate),
+  };
+}
+
+/**
+ * 归一化一份内容槽。input 省略时用山径书店演示文案。
+ * truncate=true 用于从 brief 推导（超长截断）；显式 content 超长则拒绝。
+ */
+export function normalizeContent(input, { truncate = false } = {}) {
+  if (input === undefined || input === null) return cloneDefaultContent();
+  if (typeof input !== 'object' || Array.isArray(input)) throw new Error('content 必须是对象（title/subtitle/bullets/cta/foot）');
+  const title = fitSlot(cleanLine(input.title), CONTENT_LIMITS.title, 'title', truncate);
+  const subtitle = fitSlot(cleanLine(input.subtitle), CONTENT_LIMITS.subtitle, 'subtitle', truncate);
+  if (!Array.isArray(input.bullets) || input.bullets.length !== 3) {
+    throw new Error('bullets 必须恰好 3 条');
+  }
+  const bullets = input.bullets.map((item, index) => normalizeBullet(item, index, truncate));
+  const cta = fitSlot(cleanLine(input.cta), CONTENT_LIMITS.cta, 'cta', truncate);
+  const foot = fitSlot(cleanLine(input.foot), CONTENT_LIMITS.foot, 'foot', truncate);
+  const content = { title, subtitle, bullets, cta, foot };
+  const labels = [
+    ['title', title],
+    ['subtitle', subtitle],
+    ['bullets[0].text', bullets[0].text],
+    ['bullets[0].meta', bullets[0].meta],
+    ['bullets[1].text', bullets[1].text],
+    ['bullets[1].meta', bullets[1].meta],
+    ['bullets[2].text', bullets[2].text],
+    ['bullets[2].meta', bullets[2].meta],
+    ['cta', cta],
+    ['foot', foot],
+  ];
+  for (const [label, text] of labels) assertSlotSafe(text, label);
+  return content;
+}
+
+function splitBullet(raw) {
+  const text = cleanLine(raw);
+  const parts = text.split(/\s*[·｜|]\s*/);
+  if (parts.length >= 2) {
+    const meta = parts[parts.length - 1];
+    const body = parts.slice(0, -1).join(' · ');
+    if (body !== '' && meta !== '' && meta.length <= CONTENT_LIMITS.meta && body.length <= CONTENT_LIMITS.bullet) {
+      return { text: body, meta };
+    }
+  }
+  return { text: text.slice(0, CONTENT_LIMITS.bullet), meta: '要点' };
+}
+
+function pushBullet(list, seen, item) {
+  const text = cleanLine(item?.text ?? '');
+  if (text === '' || seen.has(text)) return;
+  seen.add(text);
+  list.push({
+    text: text.slice(0, CONTENT_LIMITS.bullet),
+    meta: cleanLine(item.meta || '要点').slice(0, CONTENT_LIMITS.meta) || '要点',
+  });
+}
+
+/**
+ * 从真实 brief（title + prompt，可选 context/content）推导三页共用的内容槽。
+ * 显式 brief.content 优先；否则按列表、分句、情境字段确定性截取，不调用模型。
+ */
+export function contentFromBrief(brief) {
+  if (!brief || typeof brief !== 'object') throw new Error('contentFromBrief 需要 brief 对象');
+  if (brief.content !== undefined && brief.content !== null) return normalizeContent(brief.content);
+  const titleSource = cleanLine(brief.title);
+  if (titleSource === '') throw new Error('brief.title 必须是非空字符串');
+  const prompt = cleanLine(brief.prompt);
+  if (prompt === '') throw new Error('brief.prompt 必须是非空字符串');
+  let title = titleSource;
+  for (const suffix of ['官网', '首页方向', '落地页', '首页', '方向']) {
+    if (title.endsWith(suffix) && title.length > suffix.length) {
+      title = title.slice(0, -suffix.length).trim();
+      break;
+    }
+  }
+  title = title.slice(0, CONTENT_LIMITS.title);
+  const subtitle = prompt.slice(0, CONTENT_LIMITS.subtitle);
+  const bullets = [];
+  const seen = new Set();
+  for (const line of String(brief.prompt).split(/\n/)) {
+    const item = line.match(/^\s*(?:[-*•]|\d+[.)、])\s+(.+)$/);
+    if (item) pushBullet(bullets, seen, splitBullet(item[1]));
+  }
+  if (bullets.length < 3) {
+    const semis = prompt.split(/[；;]/).map((part) => cleanLine(part)).filter((part) => part.length >= 2);
+    if (semis.length >= 3) {
+      for (const part of semis) pushBullet(bullets, seen, splitBullet(part));
+    }
+  }
+  if (bullets.length < 3) {
+    for (const part of prompt.split(/[，,]/)) {
+      const clause = cleanLine(part).replace(/[。！？!?]+$/g, '');
+      if (clause.length >= 4) pushBullet(bullets, seen, splitBullet(clause));
+    }
+  }
+  const context = brief.context && typeof brief.context === 'object' ? brief.context : {};
+  const contextBullets = [
+    [context.audience, '读者'],
+    [context.projectType, '类型'],
+    [context.device, '场景'],
+    [context.note, '约束'],
+  ];
+  for (const [value, meta] of contextBullets) {
+    if (typeof value === 'string' && cleanLine(value) !== '') pushBullet(bullets, seen, { text: cleanLine(value), meta });
+  }
+  pushBullet(bullets, seen, { text: title, meta: '名称' });
+  let pad = 1;
+  while (bullets.length < 3) {
+    const before = bullets.length;
+    pushBullet(bullets, seen, { text: `${title} ${pad}`, meta: '名称' });
+    pad += 1;
+    if (bullets.length === before) throw new Error('无法从 brief 凑满 3 条要点');
+  }
+  const cta = typeof context.cta === 'string' && cleanLine(context.cta) !== ''
+    ? cleanLine(context.cta).slice(0, CONTENT_LIMITS.cta)
+    : '了解详情';
+  return normalizeContent({
+    title,
+    subtitle,
+    bullets: bullets.slice(0, 3),
+    cta,
+    foot: '方向样张 · 文案三页相同',
+  }, { truncate: true });
+}
+
+export function canonicalContent(content) {
+  const slots = normalizeContent(content);
+  return JSON.stringify({
+    title: slots.title,
+    subtitle: slots.subtitle,
+    bullets: slots.bullets.map((item) => ({ text: item.text, meta: item.meta })),
+    cta: slots.cta,
+    foot: slots.foot,
+  });
+}
+
+export function contentHash(content) {
+  return sha256Short(canonicalContent(content));
+}
+
+let skeletonHashCache = null;
+
+/** 骨架哈希：base.html 原文，与具体世界和文案无关。 */
+export function skeletonHash() {
+  if (skeletonHashCache === null) skeletonHashCache = sha256Short(loadTemplate());
+  return skeletonHashCache;
+}
+
+/**
+ * 从渲染后的 HTML 读回内容槽。读不到、条数不对、或文档标题与主标题不一致时返回 null。
+ * 比较的是转义后的文本，三页必须逐字相同。
+ */
+export function readContentSlots(html) {
+  if (typeof html !== 'string' || html === '') return null;
+  const grab = (pattern) => {
+    const found = pattern.exec(html);
+    return found ? found[1] : null;
+  };
+  const title = grab(/<title>([^<]*)<\/title>/);
+  const shop = grab(/<h1 class="shop">([^<]*)<\/h1>/);
+  const subtitle = grab(/<p class="tagline">([^<]*)<\/p>/);
+  const books = [...html.matchAll(/<span class="book">([^<]*)<\/span>/g)].map((found) => found[1]);
+  const metas = [...html.matchAll(/<span class="meta">([^<]*)<\/span>/g)].map((found) => found[1]);
+  const cta = grab(/<button class="cta"[^>]*>([^<]*)<\/button>/);
+  const foot = grab(/<p class="foot">([^<]*)<\/p>/);
+  if ([title, shop, subtitle, cta, foot].some((value) => value === null || value === '')) return null;
+  if (title !== shop) return null;
+  if (books.length !== 3 || metas.length !== 3) return null;
+  if (books.some((value) => value === '') || metas.some((value) => value === '')) return null;
+  return {
+    title,
+    subtitle,
+    bullets: books.map((text, index) => ({ text, meta: metas[index] })),
+    cta,
+    foot,
+  };
+}
+
+function contentValues(content) {
+  return {
+    TITLE: escapeHtml(content.title),
+    SUBTITLE: escapeHtml(content.subtitle),
+    BULLET_1: escapeHtml(content.bullets[0].text),
+    BULLET_1_META: escapeHtml(content.bullets[0].meta),
+    BULLET_2: escapeHtml(content.bullets[1].text),
+    BULLET_2_META: escapeHtml(content.bullets[1].meta),
+    BULLET_3: escapeHtml(content.bullets[2].text),
+    BULLET_3_META: escapeHtml(content.bullets[2].meta),
+    CTA: escapeHtml(content.cta),
+    FOOT: escapeHtml(content.foot),
+  };
+}
+
+/** 把一个世界渲染成完整 HTML：视觉占位符来自世界，内容槽三页共用。无随机、无外部资源。 */
+export function renderCandidate(worldInput, contentInput) {
   const world = unwrapWorld(worldInput);
   if (!world || typeof world !== 'object') {
     throw new Error('renderCandidate 需要一个世界对象');
   }
+  const explicit = contentInput !== undefined ? contentInput : (worldInput && typeof worldInput === 'object' ? worldInput.content : undefined);
+  const content = normalizeContent(explicit);
   const tokens = world.tokens && typeof world.tokens === 'object' ? world.tokens : {};
   const decorClasses = (world.decor ?? []).map((name) => {
     if (typeof name !== 'string' || !name.trim()) throw new Error(`世界 ${world.id ?? '?'} 的 decor 名字不合法`);
@@ -886,6 +1191,7 @@ export function renderCandidate(worldInput) {
     LAYOUT_CLASS: world.layoutClass,
     DECOR_CLASSES: decorClasses,
     DECOR_CSS: world.decorCss ?? '',
+    ...contentValues(content),
   };
 
   let html = loadTemplate();
@@ -900,4 +1206,117 @@ export function renderCandidate(worldInput) {
     throw new Error(`世界 ${world.id ?? '?'} 渲染后仍有未替换的占位符`);
   }
   return html;
+}
+
+function planWorldIds(plan) {
+  return (plan.worlds ?? []).map((world) => (typeof world === 'string' ? world : world.id));
+}
+
+function roundIndexOfPlan(plan) {
+  for (let index = 1; index <= WORLD_ROUNDS.length; index += 1) {
+    const candidate = roundPlan(index);
+    if (candidate.relation !== plan.relation) continue;
+    if (planWorldIds(candidate).join(',') === planWorldIds(plan).join(',')) return index;
+  }
+  return null;
+}
+
+/**
+ * 把 relationPlan 或 round（1-based）收成 roundPlan 的形状。
+ * relationPlan 可以是 roundPlan() 的返回值，或 { relation, family? | axis? }。
+ */
+export function resolveRelationPlan({ relationPlan, round } = {}) {
+  const hasPlan = relationPlan !== undefined && relationPlan !== null;
+  if (hasPlan && (typeof relationPlan !== 'object' || Array.isArray(relationPlan))) {
+    throw new Error('relationPlan 必须是对象');
+  }
+  if (hasPlan && Array.isArray(relationPlan.worlds)) {
+    if (relationPlan.worlds.length !== 3) throw new Error('relationPlan.worlds 必须恰好 3 个世界');
+    if (round !== undefined && round !== null) {
+      const planned = roundPlan(round);
+      if (planWorldIds(planned).join(',') !== planWorldIds(relationPlan).join(',')) {
+        throw new Error(`round ${round} 与 relationPlan 的世界不一致`);
+      }
+    }
+    return relationPlan;
+  }
+  if (hasPlan && typeof relationPlan.relation === 'string') {
+    const matches = [];
+    for (let index = 1; index <= WORLD_ROUNDS.length; index += 1) {
+      const planned = roundPlan(index);
+      if (planned.relation !== relationPlan.relation) continue;
+      if (relationPlan.relation === 'lineage' && relationPlan.family && planned.family !== relationPlan.family) continue;
+      if (relationPlan.relation === 'contrast' && relationPlan.axis && planned.axis !== relationPlan.axis) continue;
+      if (relationPlan.relation === 'lineage' && !relationPlan.family) continue;
+      if (relationPlan.relation === 'contrast' && !relationPlan.axis) continue;
+      matches.push(planned);
+    }
+    if (matches.length === 0) {
+      throw new Error(`没有匹配的轮次计划：${relationPlan.relation} ${relationPlan.family ?? relationPlan.axis ?? ''}`);
+    }
+    if (round !== undefined && round !== null) {
+      const planned = roundPlan(round);
+      const found = matches.find((item) => planWorldIds(item).join(',') === planWorldIds(planned).join(','));
+      if (!found) throw new Error(`round ${round} 与 relationPlan 不一致`);
+      return found;
+    }
+    if (matches.length > 1) throw new Error('relationPlan 匹配到多轮，请带上 family 或 axis');
+    return matches[0];
+  }
+  return roundPlan(round === undefined || round === null ? 1 : round);
+}
+
+function candidateWorld(world) {
+  return {
+    material: world.axes.material,
+    type: world.axes.type,
+    layout: world.axes.layout,
+    color: world.axes.color,
+    family: world.family,
+    variant: world.variant,
+    contrast: world.contrast,
+  };
+}
+
+/**
+ * 按一轮关系计划渲染 3 个候选。三页共用同一内容槽，只换世界。
+ * 不写文件、不写 decide、不写台账。返回值可直接作为 add 的候选 JSON。
+ */
+export function generateRound({ brief, relationPlan, round, content } = {}) {
+  if (!brief || typeof brief !== 'object') throw new Error('generateRound 需要 brief 对象');
+  if (typeof brief.title !== 'string' || cleanLine(brief.title) === '') throw new Error('brief.title 必须是非空字符串');
+  if (typeof brief.prompt !== 'string' || cleanLine(brief.prompt) === '') throw new Error('brief.prompt 必须是非空字符串');
+  const slots = content !== undefined && content !== null ? normalizeContent(content) : contentFromBrief(brief);
+  const plan = resolveRelationPlan({ relationPlan, round });
+  const worlds = plan.worlds.map((world) => (typeof world === 'string' ? getWorld(world) : world));
+  assertRoundDiversity(worlds);
+  const candidates = worlds.map((world) => ({
+    id: world.id,
+    world: candidateWorld(world),
+    html: renderCandidate(world, slots),
+  }));
+  const htmlSet = new Set();
+  for (const candidate of candidates) {
+    if (htmlSet.has(candidate.html)) {
+      throw new Error(`世界 ${candidate.id} 渲染结果与本轮另一个候选完全相同`);
+    }
+    htmlSet.add(candidate.html);
+    const readback = readContentSlots(candidate.html);
+    const expected = readContentSlots(candidates[0].html);
+    if (readback === null || JSON.stringify(readback) !== JSON.stringify(expected)) {
+      throw new Error(`世界 ${candidate.id} 的内容槽没有锁住`);
+    }
+  }
+  const planRound = roundIndexOfPlan(plan);
+  return {
+    relation: plan.relation,
+    ...(plan.family ? { family: plan.family } : {}),
+    ...(plan.axis ? { axis: plan.axis } : {}),
+    ...(planRound !== null ? { round: planRound } : {}),
+    writer: WRITER_ID,
+    contentHash: contentHash(slots),
+    skeletonHash: skeletonHash(),
+    content: slots,
+    candidates,
+  };
 }

@@ -7,7 +7,7 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.7`
+- 版本：`0.1.8`
 - DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过）；0.1.6 已在隔离 profile + DSH 0.2.2-rc.1 验证 headless 工具调用与 Web 三栏卡片回写
 - 一个技能入口：`design-kit`
 - 一个斜杠命令：`/dkit`，把对话直接切到 design-kit 流程（可带需求）
@@ -19,7 +19,7 @@
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.7.zip
+dsh-design-kit-runtime-v0.1.8.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：
@@ -58,14 +58,15 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 | 你说的话 | 走哪条 | 产物 |
 |---|---|---|
 | 做个落地页 / 改界面 / 审 AI 味 | UI 交付 | 方向 + tokens + 页面 + lint 报告 + DESIGN.md |
-| 三个方向选一个 / 都差点意思 | 粗选 | 每轮 3 候选、删除/待定/三选一、12 个封顶后归因 |
+| 三个方向选一个 / 都差点意思 | 粗选 | 先 generate 锁定文案，再每轮 3 个世界、删除/待定/三选一、12 个封顶后归因 |
 | 红色收一点 / 字号 16 还是 18 | 精调 | 单轴盲测 + 台账 + JND 区间 + calibration |
 | 做成 PPT / 汇报 | PPT 交付 | deck_check → PPTX → PDF/PNG |
 
 核心约束：
 
 - 声明不是证据；代理不是证明；chip 是弱先验，不是量化测量。
-- 粗选固定 4×3=12、每轮最多 1 个待定；final 前自动完整性校验。
+- 粗选固定 4×3=12、每轮最多 1 个待定；先 `generate` 再预览，三页文案相同、HTML 必须互异、无外链；final 前自动完整性校验。
+- 生成源 Phase 1 只参数化 12 张世界卡。Phase 2（archetype 池）和自由生成模式 B 还没做。
 - 精调一次一轴，结论写等效区间，不写精确值。
 - deck 依赖 ppt-master + Python + LibreOffice Kit；缺依赖返回结构化 `missing[]`，不假装成功。
 
@@ -74,6 +75,7 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 ```bash
 npm test
 node test/shortlist-ui-contract.test.mjs
+node test/generate-round.test.mjs
 node test/docs-consistency.mjs
 node skills/design-kit/probe-kit/test/smoke.mjs
 node skills/design-kit/probe-kit/test/regression.test.mjs
@@ -108,6 +110,7 @@ cordis.patch.yml             DSH bundle patch
 - 路径牢笼与一次性令牌不是完整安全沙箱；只从可信来源安装。
 - 旧插件 `dsh-ui-craft` / `dsh-probe-kit` 不要与本插件同时安装。
 - 0.1.7 的 `/dkit` 命令与自定义删除理由已过本地 mock/契约测试；真实宿主斜杠菜单与卡片输入尚未独立复验，升级后需重启 DSH 再点一轮确认。
+- 0.1.8 的生成源只覆盖参数化世界卡。brief 没写 `content` 时，要点是从 title / prompt 截出来的，不是自由撰写。
 
 ## License
 

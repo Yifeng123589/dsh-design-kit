@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.8
+
+### Added
+
+- 粗选生成源 Phase 1：`renderCandidate` 接受 brief 内容槽（title / subtitle / 3 条要点 / cta / foot），同一轮三个候选共用；不传内容时仍是山径书店演示文案。
+- `shortlist.mjs generate` 与 `probe_shortlist` 的 `generate` 子命令：按现有 lineage / contrast 计划渲染 3 个完整页，写出可 `add` 的候选 JSON（`writer` / `contentHash` / `skeletonHash`）。不写 decide，不自己写台账；`--add` 才交给 `add` 落账。
+- 入库闸门：内容槽不一致、HTML 相同或含外链的候选在 `add` 前拒收。
+
+### Notes
+
+- 没有新工具。宿主对话走现有 `probe_shortlist` 的 `generate` 子命令，避免模型绕过 CLI 继续手写三页。
+- Phase 2（archetype 池）和自由生成模式 B 未做。不从 Figma 转 HTML，也不内置外部 skill。
+
 ## 0.1.7
 
 ### Added

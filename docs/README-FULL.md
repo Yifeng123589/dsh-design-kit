@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + `/dkit` 命令 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.7`
+- 版本：`0.1.8`
 - 技能：`design-kit`（1 个）
 - 命令：`/dkit`（1 个），把对话转成 design-kit 流程；可带需求
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
@@ -176,7 +176,9 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 
 ### 4.2 粗选：有关系的 3 个，删或待定
 
-候选文件必须声明关系，否则 `add` 会被拒绝。先写 brief（只有 `title` / `prompt` 必填；`cap` 固定 12，填了也不能放宽）：
+候选必须先 `generate` 再 `add`。没有候选文件时不要说已经有三个方向，也不要手写三份 HTML。Phase 1 把 brief 收成一份内容槽（可写在 `content` 里；省略则按 title / prompt 确定性截取），套到一轮 3 个内置世界上。三页文案相同，只换视觉。Phase 2（archetype 池）和自由生成模式 B 未做。
+
+`add` 会拒绝：没有关系、内容槽不一致、HTML 相同、或带外链。先写 brief（只有 `title` / `prompt` 必填；`cap` 固定 12，填了也不能放宽）：
 
 ```jsonc
 // brief.json
@@ -197,7 +199,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
   ] }
 ```
 
-流程（推荐，对话内完成；A3 一次性令牌）：`init` 建回合 → `add` 每轮 → `probe_shortlist_preview` 在对话里起三栏 iframe → 用户点删除/待定（或终选）→ 卡片自动发回 `[probe-shortlist-ui] {json}`（含一次性 `uiToken`，绑定 run/轮次/候选，30 分钟过期、用一次失效）→ agent 调 `probe_shortlist_ui_action` 落账 → 下一轮或终选。令牌按卡片分别存放在 `run/.ui-tokens/`，重复 preview 不会覆盖旧卡片；只消费当前卡片令牌。令牌缺失/伪造/过期/轮次不符会被拒收；被拒就重新 preview，不要手写令牌。
+流程（推荐，对话内完成；A3 一次性令牌）：`init` 建回合 → `generate`（可 `add: true`）→ `probe_shortlist_preview` 在对话里起三栏 iframe → 用户点删除/待定（或终选）→ 卡片自动发回 `[probe-shortlist-ui] {json}`（含一次性 `uiToken`，绑定 run/轮次/候选，30 分钟过期、用一次失效）→ agent 调 `probe_shortlist_ui_action` 落账 → 下一轮再 `generate` 或终选。令牌按卡片分别存放在 `run/.ui-tokens/`，重复 preview 不会覆盖旧卡片；只消费当前卡片令牌。令牌缺失/伪造/过期/轮次不符会被拒收；被拒就重新 preview，不要手写令牌。`generate` 本身不写 decide、不写台账。
 
 兼容旧流程：打开工具返回的轮次页，删除/待定后下载 `decisions-*.jsonl` → `decide`；待定满 3 开终选页 → `final`。两条路落同一套台账，不要同时用。
 

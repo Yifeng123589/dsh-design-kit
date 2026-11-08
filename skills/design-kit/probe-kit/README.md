@@ -208,7 +208,7 @@ node shortlist.mjs verify --run shortlist-runs/sl-demo-success
 ```
 probe-kit/
 ├── probe.mjs                 # 精调 CLI：demo/build/append/attribute/revoke/review/apply/status/verify/selftest
-├── shortlist.mjs             # 粗选 CLI：init/add/decide/final/report/verify/demo/status
+├── shortlist.mjs             # 粗选 CLI：init/generate/add/decide/final/report/verify/demo/status
 ├── lib/recorder.mjs          # 指认状态机（无 DOM，浏览器与 Node 共用）
 ├── lib/shortlist-recorder.mjs# 粗选轮次/终选状态机
 ├── lib/shortlist.mjs         # 理由 chips、关系校验、上限、归因、能力缺口
