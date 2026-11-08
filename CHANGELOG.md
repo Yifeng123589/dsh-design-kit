@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6
+
+### Fixed
+
+- 粗选预览改为每张卡片独立令牌：存在 `run/.ui-tokens/<token>.json`，重复 preview 不再覆盖旧卡片；`probe_shortlist_ui_action` 只消费当前卡片的令牌，其他预览仍可继续使用。
+- 令牌目录自动清理过期记录并限制同回合数量（最多 32 个）；客户端按 `uiTokenExpiresAt` 在 30 分钟后禁用提交并提示重新预览。
+- 清理 0.1.5 的单文件 `.ui-token.json`；旧卡片会明确提示重新预览，不再出现“旧卡片覆盖新卡片”的误报。
+
 ## 0.1.5
 
 ### Fixed

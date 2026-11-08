@@ -66,7 +66,7 @@ DSH 会把结果渲染成对话内的三栏 iframe（候选 A/B/C，盲性：不
 probe_shortlist_ui_action({ "payload": "<[probe-shortlist-ui] 后面的 JSON 字符串>" })
 ```
 
-安全门（A3）：卡片携带**一次性预览令牌**（绑定 run / 轮次 / 候选，30 分钟过期，用一次即失效）。缺少、伪造、过期、轮次/候选不匹配的 payload 会被拒绝；被拒时**重新调用 `probe_shortlist_preview`** 让用户重点，不要手写或复用过令牌，也不要绕过它直接调 `probe_shortlist decide/final` 来伪造 UI 选择。
+安全门（A3）：卡片携带**一次性预览令牌**（绑定 run / 轮次 / 候选，30 分钟过期，用一次即失效）。每张卡片有独立令牌，重复 preview 不会让旧卡片失效；只消费当前卡片的令牌。缺少、伪造、过期、轮次/候选不匹配的 payload 会被拒绝；被拒时**重新调用 `probe_shortlist_preview`** 让用户重点，不要手写或复用过令牌，也不要绕过它直接调 `probe_shortlist decide/final` 来伪造 UI 选择。
 
 它会写决策/终选文件并调 `shortlist.mjs` 落账。成功后：
 - `decide` → 若待定未满 3，生成下一轮候选后再次 `probe_shortlist_preview`；

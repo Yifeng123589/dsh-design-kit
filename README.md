@@ -7,8 +7,8 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.5`
-- DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过；0.1.5 仅本地自动化验证）
+- 版本：`0.1.6`
+- DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过）；0.1.6 已在隔离 profile + DSH 0.2.2-rc.1 验证 headless 工具调用与 Web 三栏卡片回写
 - 一个技能入口：`design-kit`
 - 10 个工具：`design_lint` / `design_tokens` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
 - Web 客户端：粗选三栏 iframe 预览，选择后回传结构化动作（一次性令牌）
@@ -18,7 +18,7 @@
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.5.zip
+dsh-design-kit-runtime-v0.1.6.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：

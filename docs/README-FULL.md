@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.5`
+- 版本：`0.1.6`
 - 技能：`design-kit`（1 个）
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
 - 客户端：DSH Web 端会把 `probe_shortlist_preview` 直接渲染成**对话内三栏 iframe 预览**，选择后自动发回结构化动作
@@ -196,7 +196,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
   ] }
 ```
 
-流程（推荐，对话内完成；A3 一次性令牌）：`init` 建回合 → `add` 每轮 → `probe_shortlist_preview` 在对话里起三栏 iframe → 用户点删除/待定（或终选）→ 卡片自动发回 `[probe-shortlist-ui] {json}`（含一次性 `uiToken`，绑定 run/轮次/候选，30 分钟过期、用一次失效）→ agent 调 `probe_shortlist_ui_action` 落账 → 下一轮或终选。令牌缺失/伪造/过期/轮次不符会被拒收；被拒就重新 preview，不要手写令牌。
+流程（推荐，对话内完成；A3 一次性令牌）：`init` 建回合 → `add` 每轮 → `probe_shortlist_preview` 在对话里起三栏 iframe → 用户点删除/待定（或终选）→ 卡片自动发回 `[probe-shortlist-ui] {json}`（含一次性 `uiToken`，绑定 run/轮次/候选，30 分钟过期、用一次失效）→ agent 调 `probe_shortlist_ui_action` 落账 → 下一轮或终选。令牌按卡片分别存放在 `run/.ui-tokens/`，重复 preview 不会覆盖旧卡片；只消费当前卡片令牌。令牌缺失/伪造/过期/轮次不符会被拒收；被拒就重新 preview，不要手写令牌。
 
 兼容旧流程：打开工具返回的轮次页，删除/待定后下载 `decisions-*.jsonl` → `decide`；待定满 3 开终选页 → `final`。两条路落同一套台账，不要同时用。
 
@@ -315,7 +315,7 @@ node skills/design-kit/probe-kit/test/regression.test.mjs  # 包内回归（10/1
   - `fixtures`：测试、真实回合证据与回归夹具；
   - `docs`：验收、QA、粗选/精调协议与参考；
   - `dist/RELEASE-README.md` + `SHA256SUMS.txt` 列出三件的大小与哈希；
-  - 兼容旧文件名 `dsh-design-kit-v0.1.5.zip` 与 runtime 内容相同；npm tarball 带 docs，但不含 test/证据/QA。
+  - 兼容旧文件名 `dsh-design-kit-v0.1.6.zip` 与 runtime 内容相同；npm tarball 带 docs，但不含 test/证据/QA。
 - 安装只用 runtime；fixtures/docs 不要装进 DSH。
 - 手写区：`skills/design-kit/SKILL.md`、`skills/design-kit/references/deck-handoff.md`、`skills/design-kit/deck/export_shim.py`；同步区不要手改，改源目录后由维护者重新同步并打包。
 - 同步清单：`skills/design-kit/.sync-manifest.json`（ui-craft 17 / probe-kit 40 / references 2）。

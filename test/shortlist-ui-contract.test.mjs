@@ -102,7 +102,7 @@ check('decide：preview payload → persistAction 生成 CLI 可读的 shortlist
     assert(record.runId === 'contract-run' && record.round === 1, 'runId/round 应写对');
     assert(record.decisions.length === 3, '应写 3 条决策');
     assert(record.decisions.every((item) => typeof item.pos === 'number' && ['eliminate', 'defer'].includes(item.action)), '决策字段不合法');
-    assert(existsSync(join(dir, '.ui-token.json')) === false, '令牌应被消费');
+    assert(existsSync(join(dir, '.ui-tokens', preview.uiToken + '.json')) === false, '令牌应被消费');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

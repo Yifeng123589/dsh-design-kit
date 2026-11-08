@@ -403,6 +403,7 @@ await check('客户端入口与 dsh.client 清单存在', async () => {
   const client = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8');
   assert(client.includes("key: 'probe_shortlist_preview'"), 'client 应注册 probe_shortlist_preview toolview');
   assert(client.includes('uiToken: data.uiToken'), 'client 回传动作应携带一次性 uiToken');
+  assert(client.includes('uiTokenExpiresAt') && client.includes('预览已过期'), 'client 应显示令牌过期状态并禁用提交');
   assert(client.includes('DecompressionStream'), 'client 应支持解压 gzip 候选预览');
   assert(client.includes('data-process-activity') && client.includes('scrollIntoView'), 'client 应自动展开过程组并滚动到卡片');
   assert(client.includes('window.__ModuleLoader__.load'), 'client 应通过 ModuleLoader 注册');
@@ -470,6 +471,12 @@ await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload',
     );
     assert(result.reasonChips.length >= 6, '应返回删除理由 chips');
     assert(typeof result.uiToken === 'string' && result.uiToken.length > 20, 'preview 应发一次性令牌');
+    const secondPreview = await preview.execute({ run: tmp }, { cwd: tmp });
+    assert(secondPreview.ok === true && secondPreview.uiToken !== result.uiToken, '重复预览应发不同令牌，不能覆盖旧卡片');
+    const tokenFile = join(tmp, '.ui-tokens', result.uiToken + '.json');
+    const secondTokenFile = join(tmp, '.ui-tokens', secondPreview.uiToken + '.json');
+    assert(existsSync(tokenFile) && existsSync(secondTokenFile), '两个预览令牌应同时存在');
+    assert(existsSync(join(tmp, '.ui-token.json')) === false, '新预览不应再写旧的单文件令牌');
     const action = registered.tools.find((item) => item.name === 'probe_shortlist_ui_action');
     const bad = await action.execute({}, { cwd: tmp });
     assert(bad.ok === false && bad.error.includes('payload'), 'action 缺 payload 应返回中文错误');
@@ -486,14 +493,16 @@ await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload',
       { payload: JSON.stringify({ ...basePayload, uiToken: 'deadbeef'.repeat(6) }) },
       { cwd: tmp },
     );
-    assert(wrongToken.ok === false && wrongToken.error.includes('不匹配'), '伪造令牌应拒绝');
+    assert(
+      wrongToken.ok === false && (wrongToken.error.includes('不匹配') || wrongToken.error.includes('不存在')),
+      '伪造令牌应拒绝：' + wrongToken.error,
+    );
     const wrongRound = await action.execute(
       { payload: JSON.stringify({ ...basePayload, round: 2, uiToken: result.uiToken }) },
       { cwd: tmp },
     );
     assert(wrongRound.ok === false && wrongRound.error.includes('轮次'), '轮次不匹配应拒绝');
 
-    const tokenFile = join(tmp, '.ui-token.json');
     const originalTokenFile = readFileSync(tokenFile, 'utf8');
     const expiredRecord = { ...JSON.parse(originalTokenFile), issuedAt: '2000-01-01T00:00:00.000Z' };
     writeFileSync(tokenFile, JSON.stringify(expiredRecord) + '\n', 'utf8');
@@ -525,7 +534,8 @@ await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload',
       accepted.ok === true || sandboxBlocked,
       'UI action 应成功执行 CLI；仅当宿主沙箱拦截子进程时允许 ok=false 且必须带 spawnError',
     );
-    assert(existsSync(tokenFile) === false, '令牌应在调用 CLI 前被一次性消费');
+    assert(existsSync(tokenFile) === false, '当前卡片的令牌应在调用 CLI 前被消费');
+    assert(existsSync(secondTokenFile) === true, '消费一张卡片不能误删同回合其他预览令牌');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
