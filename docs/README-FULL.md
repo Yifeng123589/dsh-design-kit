@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + `/dkit` 命令 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.9`
+- 版本：`0.1.10`
 - 技能：`design-kit`（1 个）
 - 命令：`/dkit`（1 个），把对话转成 design-kit 流程；可带需求
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
@@ -36,8 +36,9 @@
 - 每轮 3 个**彼此有关系**的候选，不盲比：
   - `lineage`：同族不同派（例：油画传统下印象派 / 写实派 / 表现派）；
   - `contrast`：同一对比轴 low / mid / high，且跨至少 2 个族（例：装饰密度极简 ↔ 繁复、影像参与度无图 ↔ 影像主导）。
-- 只允许「删除」（必须带理由）或「待定」（每轮最多 1 个）；待定满 3 进入三选一。
-- 硬上限 **4 轮 × 3 = 12 个**，`brief.cap` 不能放宽；用尽或「都不行」→ 按理由归因到 `capability / brief / taste / no-preference` 并给路由。
+- 工作台流水线：池最多 12，窗只亮 3。删除或路过就补位，整页短名单最多 3，不必每轮待定。喜欢 / save-trait 进 sidecar，已删候选仍可留下特征。
+- 旧轮次页仍是「删除」（必须带理由）或「待定」（每轮最多 1 个）；待定满 3 进入三选一。
+- 硬上限 **4 轮 × 3 = 12 个**，`brief.cap` 不能放宽。终选要有至少 1 张短名单，或声明底稿且特征袋至少 1 条。用尽或「都不行」→ 按理由归因到 `capability / brief / taste / no-preference` 并给路由。
 - 候选 HTML 有 `pageSha` 防篡改；同轮 HTML 必须互不相同。
 
 ### 精调能具体到什么程度
@@ -205,8 +206,9 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 
 硬规则（工具强制，不要绕）：
 
-- 每轮恰好 3 个候选；每轮最多待定 1 个；删除必须带理由 chip。
-- 上限固定 12 个、待定满 3；`brief.cap` 不能放宽；未 decide 上一轮不能生成下一轮。
+- 工作台：`pool` 预生成最多 12，窗只显示 3。删除或路过就补位，不必先待定；整页短名单最多 3。`likes.json` 记 likes / traits / shortlist。下一轮 `generate` 读取特征袋，不改 HTML。
+- 旧 `decide` 仍是每轮恰好 3 个候选、最多待定 1 个；删除必须带理由 chip。未 decide 上一轮不能 `add` 下一轮；已有池时不要再 add。
+- 上限固定 12 个。final：短名单 ≥ 1，或声明底稿且特征袋 ≥ 1。特征袋空且无短名单则拒绝。
 - final 前自动完整性校验；同轮 HTML 互不相同；`pageSha` 防篡改。
 
 12 个用尽或「都不行」→ 按理由 tag 统计（阈值 40%）做**弱先验归因**（chip 是用户自我报告，不是证明；capability 还要看 `capability-gap.evidence` 的页面事实核查）：

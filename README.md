@@ -7,7 +7,7 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.9`
+- 版本：`0.1.10`
 - DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过）；0.1.6 已在隔离 profile + DSH 0.2.2-rc.1 验证 headless 工具调用与 Web 三栏卡片回写
 - 一个技能入口：`design-kit`
 - 一个斜杠命令：`/dkit`，把对话直接切到 design-kit 流程（可带需求）
@@ -19,7 +19,7 @@
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.9.zip
+dsh-design-kit-runtime-v0.1.10.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：
@@ -65,7 +65,7 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 核心约束：
 
 - 声明不是证据；代理不是证明；chip 是弱先验，不是量化测量。
-- 粗选固定 4×3=12、每轮最多 1 个待定；先 `generate` 再预览，三页文案相同、HTML 必须互异、无外链；final 前自动完整性校验。
+- 粗选封顶仍是 12。工作台是 3 张滑动窗：删除或路过就从池里补位，整页短名单最多 3，不必每轮待定。旧的轮次页仍是每轮最多 1 个待定。先 `generate` 或 `pool` 再预览；三页文案相同、HTML 必须互异、无外链。特征袋空且没有短名单时不能 final。
 - 生成源默认用五张骨架（居中、对开、刊物、硬边卡片、窄带）。`--writer=worlds` 仍是 12 张世界卡。自由生成模式 B 还没做。
 - 精调一次一轴，结论写等效区间，不写精确值。
 - deck 依赖 ppt-master + Python + LibreOffice Kit；缺依赖返回结构化 `missing[]`，不假装成功。

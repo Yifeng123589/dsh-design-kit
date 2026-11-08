@@ -25,6 +25,15 @@ import {
 } from './lib/shortlist.mjs';
 import { createRoundSession, createFinalSession, inlineSource, SHORTLIST_VERSION } from './lib/shortlist-recorder.mjs';
 import { assertWriterPayload, auditStoredRound, generateArchetypeRound, loadPool, selectWriter } from './lib/archetypes.mjs';
+import {
+  LIKES_SCHEMA,
+  POOL_CAP,
+  POOL_SCHEMA,
+  WINDOW_SIZE,
+  finalGate,
+  normalizeLikesRecord,
+  traitSummary,
+} from './lib/pipeline.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // 默认产物写调用者 cwd，不写安装目录，避免只读安装或污染插件包。
@@ -171,6 +180,54 @@ function saveState(runDir, state) {
 
 function generatedCount(rounds) {
   return (rounds.rounds ?? []).reduce((sum, round) => sum + (round.candidates?.length ?? 0), 0);
+}
+
+function poolPath(runDir) {
+  return join(runDir, 'pool.json');
+}
+
+function likesPath(runDir) {
+  return join(runDir, 'likes.json');
+}
+
+function readPoolFile(runDir) {
+  const path = poolPath(runDir);
+  if (!existsSync(path)) return null;
+  const pool = readJson(path, 'pool.json');
+  if (pool?.schema !== POOL_SCHEMA) throw new CliError(`pool.json schema 应为 ${POOL_SCHEMA}`, 1);
+  return pool;
+}
+
+function poolByIdMap(pool) {
+  return new Map((pool?.candidates ?? []).map((candidate) => [candidate.id, candidate]));
+}
+
+/** 有 sidecar 时按池校验；没有文件则返回 null。不写台账。 */
+function loadLikes(runDir, runId) {
+  const path = likesPath(runDir);
+  if (!existsSync(path)) return null;
+  const pool = readPoolFile(runDir);
+  if (pool === null) throw new CliError('有 likes.json 但没有 pool.json', 1);
+  const raw = readJson(path, 'likes.json');
+  const poolById = poolByIdMap(pool);
+  try {
+    return normalizeLikesRecord(raw, {
+      runId,
+      poolIds: [...poolById.keys()],
+      reasonIds: REASON_CHIPS.map((chip) => chip.id),
+      poolById,
+    });
+  } catch (error) {
+    throw new CliError(`likes.json 不合格：${error.message}`, 1);
+  }
+}
+
+function readTraitBag(runDir) {
+  const path = likesPath(runDir);
+  if (!existsSync(path)) return [];
+  const raw = readJson(path, 'likes.json');
+  if (raw?.schema !== LIKES_SCHEMA) throw new CliError(`likes.json schema 应为 ${LIKES_SCHEMA}`, 1);
+  return traitSummary(raw);
 }
 
 function candidateHtml(runDir, candidate) {
@@ -383,6 +440,9 @@ function cmdAdd(args) {
   const { brief, rounds, state } = loadRun(runDir);
   const cap = capOrThrow(brief.cap);
   if (state.finished === true) throw new CliError('该粗选已结束，不能再加候选', 1);
+  if (readPoolFile(runDir) !== null) {
+    throw new CliError('这个回合已经有预生成池（最多 12 个）。请在工作台里删除、路过或收藏，不要再 add 一轮。', 1);
+  }
   if (state.pending.length >= cap.maxPending) {
     throw new CliError(`待定已满 ${state.pending.length}/${cap.maxPending}，请直接 final 做三选一，不要再生成候选`, 1);
   }
@@ -626,21 +686,33 @@ function cmdFinal(args) {
   const { brief, rounds, state } = loadRun(runDir);
   const cap = capOrThrow(brief.cap);
   if (state.finished === true) throw new CliError(`该粗选已结束（${state.outcome ?? 'finished'}），不能重复终选`, 1);
-  if (state.pending.length < cap.maxPending) {
-    throw new CliError(`待定只有 ${state.pending.length} 个，未到 ${cap.maxPending} 个，不能终选`, 1);
-  }
   // final 是收口动作，先过一遍完整性闸门；verify 失败不允许终选。
   const integrity = verifyRunDir(runDir);
   if (!integrity.ok) {
     throw new CliError('终选前完整性校验失败，先修好再 final：\n  - ' + integrity.problems.join('\n  - '), 1);
   }
   const raw = readJson(resolve(process.cwd(), choicePath), '终选文件');
+  const likes = loadLikes(runDir, brief.runId);
+  const draftText = (typeof raw.draft === 'string' ? raw.draft : likes?.draft ?? '').trim().slice(0, 200);
+  const gate = finalGate({
+    shortlistCount: Math.max(state.pending.length, likes?.shortlist.length ?? 0),
+    traitCount: likes?.traits.length ?? 0,
+    draft: draftText,
+  });
+  if (!gate.ok) throw new CliError(gate.error, 1);
   const errors = [];
   if (raw.schema !== 'shortlist-choice/1') errors.push(`schema 应为 shortlist-choice/1，收到 ${JSON.stringify(raw.schema)}`);
   if (raw.runId !== brief.runId) errors.push(`runId 不匹配：${raw.runId}`);
-  if (!['candidate', 'none'].includes(raw.kind)) errors.push('kind 只能是 candidate/none');
+  if (!['candidate', 'none', 'shortlist', 'draft'].includes(raw.kind)) errors.push('kind 只能是 candidate/none/shortlist/draft');
+  if (raw.kind === 'candidate' && (state.pending.length < 1 || state.pending.length > cap.maxPending)) {
+    errors.push(`待定 ${state.pending.length} 个，不能按待定位置终选`);
+  }
   if (raw.kind === 'candidate' && (!Number.isInteger(raw.pos) || raw.pos < 1 || raw.pos > state.pending.length)) {
     errors.push(`终选位置非法：${JSON.stringify(raw.pos)}`);
+  }
+  if (gate.via === 'draft' && raw.kind !== 'draft') errors.push('没有整页短名单时，终选 kind 应为 draft');
+  if (raw.kind === 'none' && (rounds.rounds ?? []).length < 1) {
+    errors.push('还没有已入账的轮次，不能走「都不行」归因；请用短名单或声明底稿终选');
   }
   if (raw.note !== undefined && typeof raw.note !== 'string') errors.push('note 必须是字符串');
   const finalNote = raw.kind === 'none' && typeof raw.note === 'string' ? raw.note.trim().slice(0, 200) : '';
@@ -654,7 +726,92 @@ function cmdFinal(args) {
 
   const ledgerPath = resolveLedgerPath(args.flags);
   const roundsCount = (rounds.rounds ?? []).length;
+  if (raw.kind === 'draft') {
+    if (draftText === '' || (likes?.traits.length ?? 0) < 1) {
+      throw new CliError('没有整页短名单时，需要声明底稿并且特征袋至少 1 条', 1);
+    }
+    const traits = traitSummary(likes);
+    const result = {
+      schema: 'shortlist-result/1',
+      runId: brief.runId,
+      kind: 'draft',
+      draft: draftText,
+      chosen: null,
+      likedTraits: traits,
+      rounds: roundsCount,
+      generated: generatedCount(rounds),
+      pending: state.pending.map((item) => item.id),
+      nextStep: { mode: 'draft', note: '按声明的底稿和特征袋继续，不再生成第 13 个候选' },
+      createdAt: nowIso(),
+    };
+    writeJson(join(runDir, 'result.json'), result);
+    appendLedger(
+      ledgerPath,
+      {
+        t: 'shortlist.chosen',
+        schema: ledger.LEDGER_SCHEMA,
+        at: nowIso(),
+        runId: brief.runId,
+        kind: 'draft',
+        draft: draftText,
+        rounds: roundsCount,
+      },
+      'shortlist.chosen',
+    );
+    state.finished = true;
+    state.outcome = 'draft';
+    saveState(runDir, state);
+    console.log(`\n终选完成：声明底稿，特征 ${traits.length} 条`);
+    console.log(`  底稿: ${draftText}`);
+    console.log(`  结果文件: ${relative(process.cwd(), join(runDir, 'result.json'))}`);
+    return 0;
+  }
+  if (raw.kind === 'shortlist') {
+    const kept = likes?.shortlist ?? [];
+    const pos = Number(raw.pos);
+    if (!Number.isInteger(pos) || pos < 1 || pos > kept.length) throw new CliError(`短名单位置非法：${JSON.stringify(raw.pos)}`, 1);
+    const source = poolByIdMap(readPoolFile(runDir)).get(kept[pos - 1].candidateId);
+    if (!source) throw new CliError('短名单候选不在池里', 1);
+    const result = {
+      schema: 'shortlist-result/1',
+      runId: brief.runId,
+      kind: 'shortlist',
+      chosen: { id: source.id, world: source.world, fromRound: source.round },
+      likedTraits: traitSummary(likes),
+      rounds: roundsCount,
+      generated: generatedCount(rounds),
+      pending: state.pending.map((item) => item.id),
+      shortlist: kept.map((item) => item.candidateId),
+      nextStep: { mode: 'axis', note: '进入精调：用 probe.mjs 的单轴 + JND 流程，不要再用 shortlist 做微调' },
+      createdAt: nowIso(),
+    };
+    writeJson(join(runDir, 'result.json'), result);
+    appendLedger(
+      ledgerPath,
+      {
+        t: 'shortlist.chosen',
+        schema: ledger.LEDGER_SCHEMA,
+        at: nowIso(),
+        runId: brief.runId,
+        kind: 'candidate',
+        pos,
+        rounds: roundsCount,
+      },
+      'shortlist.chosen',
+    );
+    state.finished = true;
+    state.outcome = 'chosen';
+    state.finalVia = 'shortlist-likes';
+    saveState(runDir, state);
+    console.log(`\n终选完成：${source.id}（池内第 ${source.poolIndex} 张，整页短名单）`);
+    console.log(`  结果文件: ${relative(process.cwd(), join(runDir, 'result.json'))}`);
+    return 0;
+  }
   if (raw.kind === 'candidate') {
+    if (!state.finalPageSha) {
+      const page = renderFinalPage({ runDir, brief, state, rounds, cap });
+      state.finalPageSha = page.sha;
+    }
     const chosen = state.pending[raw.pos - 1];
     const result = {
       schema: 'shortlist-result/1',
@@ -896,7 +1053,25 @@ function verifyRunDir(runDir) {
       try {
         const result = readJson(resultPath, 'result.json');
         if (result.schema !== 'shortlist-result/1') problems.push(`result schema 异常：${result.schema}`);
-        if (!result.chosen || !pendingIds.has(result.chosen.id)) problems.push('result.chosen 不在 pending 里');
+        const sidecarHit = existsSync(likesPath(runDir))
+          && readJson(likesPath(runDir), 'likes.json').shortlist?.some((item) => item.candidateId === result.chosen?.id) === true;
+        if (!result.chosen || (!pendingIds.has(result.chosen.id) && !sidecarHit)) problems.push('result.chosen 不在 pending 里');
+      } catch (error) {
+        problems.push(`result.json 读取失败：${error.message}`);
+      }
+    }
+  } else if (state.outcome === 'draft') {
+    const resultPath = join(runDir, 'result.json');
+    if (!existsSync(resultPath)) problems.push('outcome=draft 但缺少 result.json');
+    else {
+      try {
+        const result = readJson(resultPath, 'result.json');
+        if (result.schema !== 'shortlist-result/1') problems.push(`result schema 异常：${result.schema}`);
+        if (result.kind !== 'draft' || typeof result.draft !== 'string' || result.draft === '') {
+          problems.push('底稿终选缺少 draft 声明');
+        }
+        const traitCount = Array.isArray(result.likedTraits) ? result.likedTraits.length : 0;
+        if (traitCount < 1) problems.push('底稿终选缺少特征袋');
       } catch (error) {
         problems.push(`result.json 读取失败：${error.message}`);
       }
@@ -937,7 +1112,7 @@ function verifyRunDir(runDir) {
   }
 
   // 终选页：待定满 3 或已选中时必须有，且用 state.finalPageSha 防篡改
-  if (state.pending.length >= cap.maxPending || state.outcome === 'chosen') {
+  if (state.pending.length >= cap.maxPending || (state.outcome === 'chosen' && state.finalVia !== 'shortlist-likes')) {
     const finalPagePath = join(runDir, 'final.html');
     if (!existsSync(finalPagePath)) {
       problems.push('需要终选页但 final.html 缺失');
@@ -1291,6 +1466,9 @@ async function cmdGenerate(args) {
   if (!validation.ok) {
     throw new CliError(`生成结果不能入库：\n  - ${validation.errors.join('\n  - ')}`, 1);
   }
+  // 特征袋只作为生成上下文附在 JSON / stdout 上。writer 不读它，HTML 与内容槽保持原样。
+  const likedTraits = typeof flags.run === 'string' ? readTraitBag(resolve(process.cwd(), flags.run)) : [];
+  if (likedTraits.length > 0) payload.likedTraits = likedTraits;
   const fileRound = payload.round ?? planRound ?? 1;
   const outPath = typeof flags.out === 'string' && flags.out !== ''
     ? resolve(process.cwd(), flags.out)
@@ -1309,6 +1487,10 @@ async function cmdGenerate(args) {
   console.log(`  来源: ${payload.writer}`);
   console.log(`  内容槽: ${payload.content.title} · ${payload.contentHash}`);
   console.log(`  骨架哈希: ${payload.skeletonHash}`);
+  if (likedTraits.length > 0) {
+    console.log(`  特征袋: ${likedTraits.length} 条（下一轮生成上下文，不改 HTML，不写 decide，不写台账）`);
+    for (const trait of likedTraits) console.log(`    - ${trait.candidateId} · ${trait.kind} · ${trait.text}`);
+  }
   if (writerName === 'archetype') {
     console.log(`  骨架: ${payload.candidates.map((item) => item.archetypeId).join('、')}`);
     console.log('  三页文案相同，结构不同，并套用世界的颜色和字体。generate 不写 decide、不写台账。');
@@ -1335,6 +1517,140 @@ async function cmdGenerate(args) {
   });
 }
 
+async function cmdPool(args) {
+  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs pool --run <dir> [--writer worlds|archetype]');
+  const runDir = resolve(process.cwd(), runFlag);
+  const { brief, rounds, state } = loadRun(runDir);
+  capOrThrow(brief.cap);
+  if (state.finished === true) throw new CliError('该粗选已结束，不能再铺池', 1);
+  if ((rounds.rounds ?? []).length > 0) throw new CliError('已有轮次候选，不能再铺预生成池', 1);
+  if (state.pending.length > 0) throw new CliError('已有待定候选，不能再铺预生成池', 1);
+  if (existsSync(poolPath(runDir))) throw new CliError('预生成池已存在', 1);
+  const requestedWriter = readWriterFlag(args.flags);
+  let archetypePool;
+  try {
+    archetypePool = loadPool();
+  } catch (error) {
+    throw new CliError(error.message, 1);
+  }
+  let writerName;
+  try {
+    writerName = selectWriter(requestedWriter, archetypePool);
+  } catch (error) {
+    throw new CliError(error.message, 1);
+  }
+  let worlds = null;
+  if (writerName !== 'archetype') {
+    try {
+      worlds = await import('./lib/worlds.mjs');
+    } catch (error) {
+      throw new CliError(`pool 需要 lib/worlds.mjs：${error.message}`, 1);
+    }
+  }
+  const poolCandidates = [];
+  const seenIds = new Set();
+  let contentHash = '';
+  for (let round = 1; round <= FIXED_CAP.maxRounds; round += 1) {
+    let payload;
+    try {
+      payload = writerName === 'archetype'
+        ? generateArchetypeRound({ brief, round, pool: archetypePool })
+        : worlds.generateRound({ brief, round });
+    } catch (error) {
+      throw new CliError(error.message, error instanceof RangeError ? 2 : 1);
+    }
+    const relation = {
+      relation: payload.relation,
+      ...(payload.family ? { family: payload.family } : {}),
+      ...(payload.axis ? { axis: payload.axis } : {}),
+    };
+    const validation = validateCandidates(payload.candidates, FIXED_CAP, relation);
+    if (!validation.ok) throw new CliError(`第 ${round} 轮不能进池：\n  - ${validation.errors.join('\n  - ')}`, 1);
+    try {
+      assertWriterPayload(payload, archetypePool);
+    } catch (error) {
+      throw new CliError(error.message, 1);
+    }
+    if (typeof payload.contentHash === 'string') contentHash = payload.contentHash;
+    for (const [index, candidate] of payload.candidates.entries()) {
+      if (seenIds.has(candidate.id)) throw new CliError(`池内候选 id 重复：${candidate.id}`, 1);
+      seenIds.add(candidate.id);
+      const pos = index + 1;
+      const poolIndex = poolCandidates.length + 1;
+      if (poolIndex > POOL_CAP) throw new CliError(`池最多 ${POOL_CAP} 个候选`, 1);
+      const relPath = join('candidates', `pool-r${round}-p${pos}.html`);
+      const absPath = join(runDir, relPath);
+      mkdirSync(dirname(absPath), { recursive: true });
+      writeFileSync(absPath, candidate.html, 'utf8');
+      poolCandidates.push({
+        id: candidate.id,
+        poolIndex,
+        round,
+        pos,
+        world: candidate.world,
+        htmlSha: sha256Short(candidate.html),
+        htmlPath: relPath.replaceAll('\\', '/'),
+        relation,
+        ...(typeof candidate.archetypeId === 'string' && candidate.archetypeId !== '' ? { archetypeId: candidate.archetypeId } : {}),
+        ...(typeof candidate.skeletonHash === 'string' && candidate.skeletonHash !== '' ? { skeletonHash: candidate.skeletonHash } : {}),
+      });
+    }
+  }
+  const likedTraits = readTraitBag(runDir);
+  const pool = {
+    schema: POOL_SCHEMA,
+    runId: brief.runId,
+    cap: POOL_CAP,
+    window: WINDOW_SIZE,
+    writer: writerName,
+    contentHash,
+    likedTraits,
+    candidates: poolCandidates,
+  };
+  writeJson(poolPath(runDir), pool);
+  console.log(`\n已预生成池 ${poolCandidates.length}/${POOL_CAP}，窗口 ${WINDOW_SIZE} 张`);
+  console.log(`  文件: ${relative(process.cwd(), poolPath(runDir)) || 'pool.json'}`);
+  console.log('  来源与内容槽沿用 generate；pool 不写 decide，不写台账。');
+  console.log('  工作台里删除或路过一张，下一张从池顶补进第三栏；整页短名单最多 3 张，不必每轮待定。');
+  if (likedTraits.length > 0) {
+    console.log(`  特征袋: ${likedTraits.length} 条`);
+    for (const trait of likedTraits) console.log(`    - ${trait.candidateId} · ${trait.kind} · ${trait.text}`);
+  }
+  return 0;
+}
+
+function cmdLikes(args) {
+  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs likes --run <dir> --file <likes.json>');
+  const fileFlag = requireFlag(args.flags, 'file', '需要 --file <likes.json>');
+  const runDir = resolve(process.cwd(), runFlag);
+  const { brief } = loadRun(runDir);
+  const raw = readJson(resolve(process.cwd(), fileFlag), 'likes 文件');
+  const pool = readPoolFile(runDir);
+  if (pool === null) throw new CliError('先 pool 预生成候选，再写 likes sidecar', 1);
+  if (pool.runId !== brief.runId) throw new CliError('pool.json 的 runId 与回合不一致', 1);
+  const poolById = poolByIdMap(pool);
+  let record;
+  try {
+    record = normalizeLikesRecord(raw, {
+      runId: brief.runId,
+      poolIds: [...poolById.keys()],
+      reasonIds: REASON_CHIPS.map((chip) => chip.id),
+      poolById,
+    });
+  } catch (error) {
+    throw new CliError(`likes 不合格：${error.message}`, 1);
+  }
+  writeJson(likesPath(runDir), record);
+  console.log(`\n已写入 sidecar ${LIKES_SCHEMA}`);
+  console.log(`  喜欢 ${record.likes.length} · 特征 ${record.traits.length} · 短名单 ${record.shortlist.length}/${3} · 已看 ${record.seen.length}/${POOL_CAP}`);
+  console.log('  不写 decide，不写台账。删除理由不会自动变成下一轮约束。');
+  if (record.traits.length > 0) {
+    console.log('  特征袋:');
+    for (const trait of record.traits) console.log(`    - ${trait.candidateId} · ${trait.kind} · ${trait.text}`);
+  }
+  return 0;
+}
+
 function cmdStatus(args) {
   const ledgerPath = resolveLedgerPath(args.flags);
   const events = readLedger(ledgerPath);
@@ -1357,7 +1673,9 @@ function usage() {
 用法:
   node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
   node shortlist.mjs generate --brief <brief.json> | --run <dir> [--writer worlds|archetype] [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
+  node shortlist.mjs pool --run <dir> [--writer worlds|archetype]
   node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
+  node shortlist.mjs likes --run <dir> --file <likes.json>
   node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
   node shortlist.mjs final --run <dir> --choice <file.jsonl>
   node shortlist.mjs report --run <dir>
@@ -1367,16 +1685,20 @@ function usage() {
 
 规则: 每轮 3 个候选，必须声明关系（lineage 同族不同派 / contrast 三档跨族）；三页锁定同一内容槽、HTML 互异、无外链，否则 add 拒收；
       generate 默认：骨架库存在则用 archetype（结构不同的完整页 + 世界 token），否则回落 worlds。--writer=worlds 强制世界卡。
-      archetype 轮还会核对 skeletonHash 与结构签名。每轮最多待定 1 个；最多 4 轮 / 12 个；待定满 3 个三选一；
+      archetype 轮还会核对 skeletonHash 与结构签名。旧的 decide 仍是每轮最多待定 1 个。
+      pool 预生成最多 12 个，工作台窗只亮 3 张；删除或路过就补位，不必每轮待定。整页短名单最多 3 张。
+      likes sidecar（shortlist-likes/1）记 likes / traits / shortlist。已删候选仍可 save-trait。
+      下一轮 generate 只把特征袋抄进 JSON 和 stdout，不改 HTML。不抬高 12，不做 blend，不做特征 token 化。
+      final：短名单 ≥ 1，或声明底稿且特征袋 ≥ 1；特征袋空且无短名单则拒绝。
       用满 12 个或终选「都不行」→ 归因（capability/brief/taste/no-preference）并给出路由，不再生成第 13 个。
-      generate 只写候选 JSON（可选 --add 交给 add 落账）；不写 decide，不自己写台账。
+      generate / pool / likes 不写 decide，不自己写台账。
 
 退出码: 0 成功 · 1 校验失败 · 2 参数错误`);
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add', 'writer']);
+  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add', 'writer', 'file']);
   for (const key of Object.keys(args.flags)) {
     if (!KNOWN_FLAGS.has(key)) throw new CliError(`未知参数 --${key}。用 --help 查看用法。`, 2);
   }
@@ -1384,7 +1706,9 @@ async function main() {
   const handlers = {
     init: cmdInit,
     generate: cmdGenerate,
+    pool: cmdPool,
     add: cmdAdd,
+    likes: cmdLikes,
     decide: cmdDecide,
     final: cmdFinal,
     report: cmdReport,

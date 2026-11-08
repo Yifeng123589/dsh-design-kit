@@ -592,14 +592,15 @@ function validateShortlistDecisions(event, errors) {
 
 function validateShortlistChosen(event, errors) {
   if (!isNonEmptyString(event.runId)) errors.push('shortlist.chosen 的 runId 应为非空字符串');
-  if (!['candidate', 'none'].includes(event.kind)) errors.push("shortlist.chosen 的 kind 只能是 candidate/none");
+  if (!['candidate', 'none', 'draft'].includes(event.kind)) errors.push("shortlist.chosen 的 kind 只能是 candidate/none/draft");
   if (event.kind === 'candidate' && (!Number.isInteger(event.pos) || event.pos < 1)) {
     errors.push('kind=candidate 时 pos 应为正整数');
   }
   if (event.kind === 'none' && (!Array.isArray(event.reasonIds) || event.reasonIds.length < 1)) {
     errors.push('kind=none 时 reasonIds 至少 1 个');
   }
-  if (!Number.isInteger(event.rounds) || event.rounds < 1) errors.push('shortlist.chosen 的 rounds 应为正整数');
+  if (event.kind === 'draft' && !isNonEmptyString(event.draft)) errors.push('kind=draft 时 draft 应为非空字符串');
+  if (!Number.isInteger(event.rounds) || event.rounds < 0) errors.push('shortlist.chosen 的 rounds 应为非负整数');
 }
 
 function validateCapabilityGap(event, errors) {

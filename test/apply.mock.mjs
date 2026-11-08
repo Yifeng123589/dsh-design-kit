@@ -27,7 +27,14 @@ import {
   summarizeCheckerReport,
 } from '../lib/deck.js';
 import { parseSkillFile } from '../lib/skill.js';
-import { buildProbeMeasureArgv, hasInlineOption, parseJsonOutput, resolveTimeoutSettings, TOOL_NAMES } from '../lib/tools.js';
+import {
+  buildCaptureResult,
+  buildProbeMeasureArgv,
+  hasInlineOption,
+  parseJsonOutput,
+  resolveTimeoutSettings,
+  TOOL_NAMES,
+} from '../lib/tools.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const skillDir = join(here, '..', 'skills', 'design-kit');
@@ -401,6 +408,17 @@ await check('design_tokens / design_capture 缺参数返回中文错误', async 
   assert((await capture.execute({ target: 'x.html' }, { cwd: process.cwd() })).ok === false, 'design_capture 缺 outDir 应失败');
 });
 
+await check('design_capture 成功结果不含 non-lossless 的 undefined 字段', async () => {
+  const okRun = { exitCode: 0, stdout: 'capture ok', stderr: '', timedOut: false };
+  const ok = buildCaptureResult(okRun, 'a.html', 'out');
+  assert(ok.ok === true && ok.unavailable === false, '成功截图应标记 ok');
+  assert(!Object.hasOwn(ok, 'note'), '成功截图不应携带 note: undefined');
+  assert(!JSON.stringify(ok).includes('undefined'), '成功截图 JSON 不应包含 undefined');
+  const unavailableRun = { exitCode: 1, stdout: 'CAPTURE_UNAVAILABLE', stderr: '', timedOut: false };
+  const unavailable = buildCaptureResult(unavailableRun, 'a.html', 'out');
+  assert(unavailable.unavailable === true && typeof unavailable.note === 'string', '不可用时应带中文 note');
+});
+
 await check('probe 工具参数校验与未知命令被拒', async () => {
   const { ctx, registered } = makeCtx();
   apply(ctx, {});
@@ -419,6 +437,7 @@ await check('客户端入口与 dsh.client 清单存在', async () => {
   assert(pkg.dsh && pkg.dsh.client && pkg.dsh.client.platform === 'web', 'dsh.client.platform 应为 web');
   const inject = pkg.dsh.client.inject ?? [];
   assert(inject.includes('@deepseek-ai/dsh-client-ui-tool'), 'dsh.client.inject 应包含 ui-tool（toolview slot 所有者）');
+  assert(inject.includes('@deepseek-ai/dsh-client-ui-layout'), 'dsh.client.inject 应包含 ui-layout（shell.overlay 槽所有者）');
   const client = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8');
   assert(client.includes("key: 'probe_shortlist_preview'"), 'client 应注册 probe_shortlist_preview toolview');
   assert(client.includes('uiToken: data.uiToken'), 'client 回传动作应携带一次性 uiToken');
@@ -427,6 +446,14 @@ await check('客户端入口与 dsh.client 清单存在', async () => {
   assert(client.includes('data-process-activity') && client.includes('scrollIntoView'), 'client 应自动展开过程组并滚动到卡片');
   assert(client.includes('dsk-note') && client.includes('补充理由'), 'client 应提供自定义删除理由输入');
   assert(client.includes('roundNotes') && client.includes('finalNote'), 'client 应把自定义理由随决策/终选提交');
+  assert(client.includes("name: 'shell.overlay'") && client.includes('DesignKitOverlay'), 'client 应注册独立工作台浮层');
+  assert(client.includes('dsk-overlay') && client.includes('dsk-wb'), 'client 应有工作台浮层样式');
+  assert(client.includes('embedded'), '工作台内应复用内联卡片并避免递归打开');
+  assert(client.includes('createPortal') && client.includes('document.body'), '工作台应 portal 到 body，避免被聊天容器裁切');
+  assert(client.includes("data.mode === 'pool'") && client.includes('PoolWorkbench'), '流水线 UI 应只在工作台浮层里');
+  assert(client.includes('路过') && client.includes('收藏整页') && client.includes('收藏特征'), '工作台应有路过、整页收藏和特征按钮');
+  assert(client.includes('data.likedTraits'), '工作台应读取 preview 的 likedTraits');
+  assert(client.includes('shortlist-likes/1'), '工作台提交应使用 shortlist-likes/1');
   assert(client.includes('window.__ModuleLoader__.load'), 'client 应通过 ModuleLoader 注册');
 });
 
@@ -447,9 +474,21 @@ await check('/dkit 宿主命令注册并转发为模型可见用户消息', asyn
   assert(message.role === 'user' && message.source?.kind === 'user', '/dkit 消息应是用户消息');
   assert(Array.isArray(message.content) && message.content[0]?.type === 'text', '/dkit 消息应包含文本块');
   assert(message.content[0].text.includes('design-kit') && message.content[0].text.includes('做一个设计工具落地页'), '/dkit 消息应包含技能名与原始需求');
+  assert(!message.content[0].text.includes('直接开始'), '/dkit 有参数时不应再要求“直接开始”');
+  assert(message.content[0].text.includes('先跑 3 个方向粗选'), '/dkit 有参数时应先确认是否开始筛选');
+  assert(message.content[0].text.includes('ask_user_question'), '/dkit 应要求在对话中提问，不用 ask_user_question');
+  assert(message.content[0].text.includes('不要加“推荐”'), '/dkit 路由选项不应带推荐标记');
   const steeredAgain = [];
   command.handler({ agent: { steer: (message) => steeredAgain.push(message) }, rawInput: '' });
-  assert(steeredAgain[0].content[0].text.includes('先问我'), '/dkit 无参数时应先询问目标');
+  assert(steeredAgain[0].content[0].text.includes('先问清'), '/dkit 无参数时应先询问目标');
+  assert(
+    steeredAgain[0].content[0].text.includes('先跑 3 个方向粗选'),
+    '/dkit 无参数时应让用户选择直接做/三方向/参数精调，避免静默走 A',
+  );
+  assert(
+    steeredAgain[0].content[0].text.includes('ask_user_question'),
+    '/dkit 无参数时也应要求在对话中提问',
+  );
 });
 
 await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload', async () => {
