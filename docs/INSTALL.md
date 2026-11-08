@@ -42,6 +42,7 @@ npm test          # 零依赖，不需要 pnpm install
 ## 安装后确认
 
 - 技能列表出现 `design-kit`（一个入口，不再是 `ui-craft` + `probe-kit` 两个）。
+- 斜杠菜单出现 `/dkit`；输入后应转成一条用户消息，而不是普通文本命令。
 - 工具列表出现 10 个：`design_lint` / `design_tokens` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`。
 - DSH 日志应有注册汇总：技能 1/1、工具 10/10。
 - Web 端粗选卡片：先 `probe_shortlist add`，再 `probe_shortlist_preview`，对话里应出现三栏 iframe。

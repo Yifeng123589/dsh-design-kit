@@ -89,7 +89,7 @@ check('decide：preview payload → persistAction 生成 CLI 可读的 shortlist
       round: preview.round,
       uiToken: preview.uiToken,
       decisions: [
-        { pos: 1, action: 'eliminate', reasonId: SHORTLIST_UI_REASON_CHIPS[2].id },
+        { pos: 1, action: 'eliminate', reasonId: SHORTLIST_UI_REASON_CHIPS[2].id, note: '  首屏太满，信息层级不清  ' },
         { pos: 2, action: 'defer' },
         { pos: 3, action: 'eliminate', reasonId: SHORTLIST_UI_REASON_CHIPS[0].id },
       ],
@@ -102,6 +102,8 @@ check('decide：preview payload → persistAction 生成 CLI 可读的 shortlist
     assert(record.runId === 'contract-run' && record.round === 1, 'runId/round 应写对');
     assert(record.decisions.length === 3, '应写 3 条决策');
     assert(record.decisions.every((item) => typeof item.pos === 'number' && ['eliminate', 'defer'].includes(item.action)), '决策字段不合法');
+    assert(record.decisions[0].note === '首屏太满，信息层级不清', '自定义删除理由应被 trim 并写入决策');
+    assert(!('note' in record.decisions[2]), '未输入理由时不应写空 note');
     assert(existsSync(join(dir, '.ui-tokens', preview.uiToken + '.json')) === false, '令牌应被消费');
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -123,6 +125,31 @@ check('final：preview payload → persistAction 生成 CLI 可读的 shortlist-
     const record = JSON.parse(readFileSync(choicePath, 'utf8'));
     assert(record.schema === 'shortlist-choice/1', 'schema 应锁 shortlist-choice/1');
     assert(record.kind === 'candidate' && record.pos === 2, 'choice 字段应写对');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+check('final none：自定义「都不行」理由写入 shortlist-choice/1', () => {
+  const { dir } = makeRun({ final: true });
+  try {
+    const preview = buildPreview({ run: dir }, dir);
+    assert(preview.ok === true && preview.mode === 'final', '应进入终选模式：' + JSON.stringify(preview.error));
+    const prepared = persistAction(
+      {
+        schema: 'shortlist-ui-action/1',
+        kind: 'final',
+        run: dir,
+        uiToken: preview.uiToken,
+        choice: { kind: 'none', reasonIds: [SHORTLIST_UI_REASON_CHIPS[0].id], note: '  都不像我们的产品  ' },
+      },
+      dir,
+      5000,
+    );
+    const choicePath = tempFileFromCli(prepared.cli, '--choice');
+    const record = JSON.parse(readFileSync(choicePath, 'utf8'));
+    assert(record.schema === 'shortlist-choice/1' && record.kind === 'none', '终选 none 字段不合法');
+    assert(record.note === '都不像我们的产品', '终选自定义理由应被 trim 并写入 choice');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

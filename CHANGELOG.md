@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.7
+
+### Added
+
+- 新增 `/dkit` 宿主命令：把对话直接转成 design-kit 流程；无参数时先问目标，带参数时直接开始。
+- 粗选三栏卡支持自定义删除理由：删除候选后可选填文本，终选“都不行”也可补理由；理由写入决策/选择记录，不替代固定 reason chip。
+
+### Changed
+
+- 未改 JS 行为与既有 id/data-goto；`/dkit` 在无 commands 服务的 profile 中自动跳过注册。
+
 ## 0.1.6
 
 ### Fixed

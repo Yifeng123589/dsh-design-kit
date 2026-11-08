@@ -1,7 +1,7 @@
 {
   "name": "dsh-design-kit",
-  "version": "0.1.6",
-  "description": "DSH 统一设计交付插件：1 个 design-kit 技能 + 10 个工具（design×3、probe×4、deck×3），路由到造页面 / 选方向 / 调参数 / 出 PPT。",
+  "version": "0.1.7",
+  "description": "DSH 统一设计交付插件：1 个 design-kit 技能 + /dkit 命令 + 10 个工具（design×3、probe×4、deck×3），路由到造页面 / 选方向 / 调参数 / 出 PPT。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {

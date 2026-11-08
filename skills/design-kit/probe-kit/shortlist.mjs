@@ -621,6 +621,8 @@ function cmdFinal(args) {
   if (raw.kind === 'candidate' && (!Number.isInteger(raw.pos) || raw.pos < 1 || raw.pos > state.pending.length)) {
     errors.push(`终选位置非法：${JSON.stringify(raw.pos)}`);
   }
+  if (raw.note !== undefined && typeof raw.note !== 'string') errors.push('note 必须是字符串');
+  const finalNote = raw.kind === 'none' && typeof raw.note === 'string' ? raw.note.trim().slice(0, 200) : '';
   if (raw.kind === 'none' && (!Array.isArray(raw.reasonIds) || raw.reasonIds.length < 1)) {
     errors.push('「都不行」至少需要一个理由');
   }
@@ -669,6 +671,7 @@ function cmdFinal(args) {
   }
 
   state.finalRejectReasonIds = [...(raw.reasonIds ?? [])];
+  if (finalNote !== '') state.finalRejectNote = finalNote;
   appendLedger(
     ledgerPath,
     {
@@ -678,12 +681,14 @@ function cmdFinal(args) {
       runId: brief.runId,
       kind: 'none',
       reasonIds: raw.reasonIds ?? [],
+      ...(finalNote !== '' ? { note: finalNote } : {}),
       rounds: roundsCount,
     },
     'shortlist.chosen',
   );
   const gap = finishWithCapabilityGap({ runDir, brief, rounds, state, extraRejectReasons: raw.reasonIds ?? [], ledgerPath });
   console.log('\n终选结果：都不行 → 停止生成，进入归因');
+  if (finalNote !== '') console.log(`  补充理由: ${finalNote}`);
   console.log(`  归因: ${gap.attribution}`);
   console.log(`  路由: ${gap.route}`);
   if (gap.missingCapabilities.length > 0) console.log(`  缺失能力: ${gap.missingCapabilities.join('、')}`);

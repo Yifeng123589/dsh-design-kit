@@ -7,18 +7,19 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.6`
+- 版本：`0.1.7`
 - DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过）；0.1.6 已在隔离 profile + DSH 0.2.2-rc.1 验证 headless 工具调用与 Web 三栏卡片回写
 - 一个技能入口：`design-kit`
+- 一个斜杠命令：`/dkit`，把对话直接切到 design-kit 流程（可带需求）
 - 10 个工具：`design_lint` / `design_tokens` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
-- Web 客户端：粗选三栏 iframe 预览，选择后回传结构化动作（一次性令牌）
+- Web 客户端：粗选三栏 iframe 预览，选择后回传结构化动作（每张卡片独立一次性令牌）；删除/“都不行”可补自定义理由
 
 ## 安装
 
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.6.zip
+dsh-design-kit-runtime-v0.1.7.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：
@@ -35,6 +36,22 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 > `fixtures` / `docs` 是复核材料，不要装进 DSH。
 
 > 完整设计与实现说明（长文）：[docs/README-FULL.md](docs/README-FULL.md)
+
+## 快速开始
+
+在对话开始输入：
+
+```text
+/dkit
+```
+
+不带参数时，插件会要求模型加载 `design-kit` 技能并先问清目标；也可以直接带需求：
+
+```text
+/dkit 做一个设计工具落地页，先给三个方向
+```
+
+`/dkit` 只是把命令转成一条普通用户消息，不会绕过技能里的方向、证据和选型门。
 
 ## 能做什么
 
@@ -90,6 +107,7 @@ cordis.patch.yml             DSH bundle patch
 - 真实浏览器视觉目检、PowerPoint/WPS 逐页排版、真人 JND 标定仍需人工完成。
 - 路径牢笼与一次性令牌不是完整安全沙箱；只从可信来源安装。
 - 旧插件 `dsh-ui-craft` / `dsh-probe-kit` 不要与本插件同时安装。
+- 0.1.7 的 `/dkit` 命令与自定义删除理由已过本地 mock/契约测试；真实宿主斜杠菜单与卡片输入尚未独立复验，升级后需重启 DSH 再点一轮确认。
 
 ## License
 

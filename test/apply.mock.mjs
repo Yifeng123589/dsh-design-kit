@@ -47,8 +47,27 @@ function assert(condition, message) {
 }
 
 function makeCtx() {
-  const registered = { skills: [], tools: [], warns: [], infos: [], errors: [], disposers: 0, disposeHandlers: [] };
+  const registered = {
+    skills: [],
+    tools: [],
+    commands: [],
+    warns: [],
+    infos: [],
+    errors: [],
+    disposers: 0,
+    disposeHandlers: [],
+  };
   const ctx = {
+    inject(services, callback) {
+      if (!Array.isArray(services) || !services.includes('commands')) return;
+      callback(ctx);
+    },
+    commands: {
+      register(definition) {
+        registered.commands.push(definition);
+        return () => (registered.disposers += 1);
+      },
+    },
     skills: {
       register(definition) {
         registered.skills.push(definition);
@@ -406,7 +425,31 @@ await check('客户端入口与 dsh.client 清单存在', async () => {
   assert(client.includes('uiTokenExpiresAt') && client.includes('预览已过期'), 'client 应显示令牌过期状态并禁用提交');
   assert(client.includes('DecompressionStream'), 'client 应支持解压 gzip 候选预览');
   assert(client.includes('data-process-activity') && client.includes('scrollIntoView'), 'client 应自动展开过程组并滚动到卡片');
+  assert(client.includes('dsk-note') && client.includes('补充理由'), 'client 应提供自定义删除理由输入');
+  assert(client.includes('roundNotes') && client.includes('finalNote'), 'client 应把自定义理由随决策/终选提交');
   assert(client.includes('window.__ModuleLoader__.load'), 'client 应通过 ModuleLoader 注册');
+});
+
+await check('/dkit 宿主命令注册并转发为模型可见用户消息', async () => {
+  const { ctx, registered } = makeCtx();
+  apply(ctx, {});
+  assert(registered.commands.length === 1, '应注册 1 个 /dkit 命令');
+  const command = registered.commands[0];
+  assert(command.name === 'dkit' && command.description.includes('design-kit'), '/dkit 命令元数据不完整');
+  const steered = [];
+  const result = command.handler({
+    agent: { steer: (message) => steered.push(message) },
+    rawInput: ' 做一个设计工具落地页 ',
+  });
+  assert(result.kind === 'success', '/dkit 应返回 success');
+  assert(steered.length === 1, '/dkit 应恰好转发 1 条消息');
+  const message = steered[0];
+  assert(message.role === 'user' && message.source?.kind === 'user', '/dkit 消息应是用户消息');
+  assert(Array.isArray(message.content) && message.content[0]?.type === 'text', '/dkit 消息应包含文本块');
+  assert(message.content[0].text.includes('design-kit') && message.content[0].text.includes('做一个设计工具落地页'), '/dkit 消息应包含技能名与原始需求');
+  const steeredAgain = [];
+  command.handler({ agent: { steer: (message) => steeredAgain.push(message) }, rawInput: '' });
+  assert(steeredAgain[0].content[0].text.includes('先问我'), '/dkit 无参数时应先询问目标');
 });
 
 await check('probe_shortlist_preview 读取未决策轮并返回三栏 payload', async () => {
@@ -742,7 +785,7 @@ await check('dispose 调用全部注销器且不抛异常', async () => {
   apply(ctx, { timeoutMs: 5000 });
   assert(registered.disposeHandlers.length === 1, '应注册 dispose');
   registered.disposeHandlers[0]();
-  assert(registered.disposers === 11, '技能 + 10 工具共 11 个注销器，实际 ' + registered.disposers);
+  assert(registered.disposers === 12, '技能 + 10 工具 + /dkit 命令共 12 个注销器，实际 ' + registered.disposers);
 });
 
 await check('B6 技能注册失败：fatal 硬失败（不再只告警）', async () => {
