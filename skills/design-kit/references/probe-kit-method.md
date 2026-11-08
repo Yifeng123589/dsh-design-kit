@@ -62,9 +62,9 @@ probe_shortlist({ "command": "verify", "run": "shortlist-runs/<id>" })     // 6 
 
 硬规则（工具强制，不要试图绕过）：
 
-- 每轮恰好 3 个候选；每轮最多待定 1 个；删除必须带理由 chip。
-- 上限固定 **4 轮 × 3 = 12 个、待定满 3**；`brief.cap` 不能放宽。
-- 待定满 3 后不能再 add/decide，只能 final；未 decide 上一轮不能生成下一轮。
+- 工作台流水线：`pool` 预生成最多 12，窗只显示 3。删除或路过 → 卡片离开 → 池里下一张补位。不必每轮待定。整页短名单最多 3。`likes` sidecar 记 likes / traits / shortlist；已删候选仍可 save-trait。preview 与下一轮 `generate` 读取特征袋，不改 HTML，不写 decide / 台账。
+- 旧 `decide` 仍是每轮恰好 3 个候选、最多待定 1 个；删除必须带理由 chip。未 decide 上一轮不能生成下一轮；已经有池就不要再 add。
+- 上限固定 **4 轮 × 3 = 12 个**；`brief.cap` 不能放宽。final：短名单 ≥ 1，或声明底稿且特征袋 ≥ 1。特征袋空且无短名单则拒绝。待定满 3 后不能再 add/decide。
 - final 前自动跑完整性校验；页面 HTML 有 `pageSha` 防篡改。
 - 同轮 HTML 必须互不相同，且三页内容槽（title / subtitle / 3 条要点 / cta / foot）必须一致。archetype 还要结构签名彼此不同，且和骨架文件的 skeletonHash 一致。工具能查的是声明的族/轴、内容槽锁定、结构差异与哈希，**像不像仍要人看**。
 

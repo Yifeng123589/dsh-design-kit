@@ -121,7 +121,12 @@ node probe.mjs apply --run r4-demo-1-r2 --out /tmp/cal.json --now 2026-11-25T00:
 
 ## 粗选模式（shortlist）
 
-精调之前先选「世界」。`shortlist` 是第二个交互模式：每轮 3 个**彼此有关系**的候选并排，你只能**删除**或**待定**（每轮最多待定 1 个）；待定满 3 个进入三选一。用满 **4 轮 × 3 = 12 个** 或终选「都不行」，就停止生成，先归因再决定下一步，不做第 13 个。
+精调之前先选「世界」。`shortlist` 是第二个交互模式。0.1.10 起，工作台用一个最多 12 张的池，窗里只亮 3 张：删除或路过就补位，整页短名单最多 3，不必每轮待定。喜欢和特征写在 `likes.json`。旧的轮次页仍是每轮 3 个候选、最多待定 1 个，待定满 3 进入三选一。用满 **12 个** 或终选「都不行」，就停止生成，先归因再决定下一步，不做第 13 个。
+
+```bash
+node shortlist.mjs pool --run shortlist-runs/<id>   # 预生成 ≤12，不写 decide / 台账
+node shortlist.mjs likes --run shortlist-runs/<id> --file likes.json
+```
 
 ```bash
 cd probe-kit

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.10
+
+### Added
+
+- Design Kit 工作台：`probe_shortlist_preview` 打开 `shell.overlay` 全屏浮层，复用三栏候选卡。对话里只留「已打开」轻条，提交后关闭浮层。
+- 粗选流水线：`shortlist pool` 预生成最多 12 个候选，工作台只亮 3 张。删除或路过后卡片消失，池里下一张补进窗口，不必每轮先待定。整页短名单最多 3 张。
+- sidecar `likes.json`（`shortlist-likes/1`）记录 likes / traits / shortlist。已删除的候选仍可 save-trait。preview 带 `likedTraits`；下一轮 `generate` 把特征袋写进候选 JSON 和 stdout，不改 HTML，不写 decide，不写台账。
+- 终选轻闸门：短名单至少 1 张，或声明底稿且特征袋至少 1 条。特征袋空且没有短名单时拒绝 final。
+
+### Fixed
+
+- `design_capture` 成功时不再返回 `note: undefined`，避免 DSH lossless JSON 校验报错。
+- `/dkit` 路由改为对话正文里的中性选项，不再用带「推荐」的 `ask_user_question` 卡片。
+
+### Notes
+
+- 不把 12 张一次摊开，不做 blend，不做特征 token 化，12 的封顶不提高。删除理由不会自动变成生成约束。writer 仍不写 decide / 台账。内容槽锁定和现有 generate / archetype 路径保留。
+
 ## 0.1.9
 
 ### Added
