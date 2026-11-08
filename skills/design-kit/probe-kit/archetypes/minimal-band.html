@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 窄带收束：标题独占一条反色横带，下面大留白，要点是左右分开的事实，不是清单海报。
+     无编号、无卡片、无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .frame { height: 100%; display: flex; flex-direction: column; background: var(--bg); }
+  .band {
+    flex: none;
+    padding: 20px 22px;
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .shop {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: 26px;
+    font-weight: 550;
+    line-height: 1.2;
+    color: inherit;
+  }
+  .quiet {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 26px 22px 16px;
+    background: var(--surface);
+  }
+  .tagline { margin: 0; max-width: 20em; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .facts { margin: 0; }
+  .fact {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .fact:last-child { border-bottom: 1px solid var(--rule); }
+  .book { font-size: 14px; font-weight: 550; line-height: 1.4; }
+  .meta { color: var(--accent); font-size: 11px; letter-spacing: 0.06em; white-space: nowrap; }
+  .cta {
+    appearance: none;
+    align-self: flex-start;
+    min-height: 44px;
+    margin-top: 4px;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 1px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 550;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .foot { margin: auto 0 0; color: var(--muted); font-size: 10px; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="minimal-band">
+  <div class="frame">
+    <header class="band">
+      <h1 class="shop">{{TITLE}}</h1>
+    </header>
+    <div class="quiet">
+      <p class="tagline">{{SUBTITLE}}</p>
+      <dl class="facts">
+        <div class="fact"><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></div>
+        <div class="fact"><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></div>
+        <div class="fact"><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></div>
+      </dl>
+      <button class="cta" type="button">{{CTA}}</button>
+      <p class="foot">{{FOOT}}</p>
+    </div>
+  </div>
+</body>
+</html>

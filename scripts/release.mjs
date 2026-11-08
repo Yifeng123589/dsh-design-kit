@@ -44,7 +44,7 @@ runtime = [
 runtime += rels("lib")
 for base in ["skills/design-kit/references", "skills/design-kit/deck", "skills/design-kit/ui-craft"]:
     runtime += rels(base)
-for base in ["skills/design-kit/probe-kit/lib", "skills/design-kit/probe-kit/templates", "skills/design-kit/probe-kit/fixtures"]:
+for base in ["skills/design-kit/probe-kit/lib", "skills/design-kit/probe-kit/templates", "skills/design-kit/probe-kit/fixtures", "skills/design-kit/probe-kit/archetypes"]:
     runtime += rels(base)
 for name in ["probe.mjs", "shortlist.mjs"]:
     runtime.append("skills/design-kit/probe-kit/" + name)
@@ -56,7 +56,7 @@ runtime_size = write_zip(os.path.join(dist, "dsh-design-kit-runtime-v" + version
 compat_size = write_zip(os.path.join(dist, "dsh-design-kit-v" + version + ".zip"), runtime)
 
 fixtures = rels("test/fixtures") + rels("skills/design-kit/probe-kit/test")
-for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/generate-round.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
+for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/generate-round.test.mjs", "test/archetype-round.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
     if os.path.exists(os.path.join(root, rel)):
         fixtures.append(rel)
 fixtures_readme = """# dsh-design-kit fixtures

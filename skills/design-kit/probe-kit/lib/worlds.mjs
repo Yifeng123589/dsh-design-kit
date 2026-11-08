@@ -88,7 +88,7 @@ export const DEFAULT_CONTENT = Object.freeze({
   foot: '演示内容，非真实书店',
 });
 
-/** 生成源标识。Phase 1 只做参数化世界卡，不是自由生成。 */
+/** 生成源标识。Phase 1 是参数化世界卡。骨架库在 archetypes.mjs，writer 为 phase2-archetype。 */
 export const WRITER_ID = 'phase1-worlds';
 
 const CONTENT_LIMITS = Object.freeze({

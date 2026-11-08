@@ -178,7 +178,7 @@ export function generateRound({ brief, relationPlan, round, content }) // -> add
 
 ```
 node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
-node shortlist.mjs generate --brief <brief.json> | --run <dir> [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
+node shortlist.mjs generate --brief <brief.json> | --run <dir> [--writer worlds|archetype] [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
 node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
 node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
 node shortlist.mjs final --run <dir> --choice <file.jsonl>
@@ -188,7 +188,7 @@ node shortlist.mjs status
 node shortlist.mjs demo [--scenario success|gap|both] [--out shortlist-runs]
 ```
 
-- `generate`：按 brief 内容槽和 `roundPlan` 渲染 3 个 HTML，写出可 `add` 的候选 JSON（附 `writer` / `contentHash` / `skeletonHash`）。不写 decide、不写台账。`--add` 交给 `add` 入库。
+- `generate`：按 brief 内容槽渲染 3 个 HTML，写出可 `add` 的候选 JSON（附 `writer` / `contentHash` / `skeletonHash`）。`--writer` 省略时有骨架库则用 archetype（`archetypes/` 的完整页 + 世界 token，并按 lineage/contrast 抽签），否则 worlds（`roundPlan` 的 12 张世界卡）。不写 decide、不写台账。`--add` 交给 `add` 入库。verify 对 archetype 重算 skeletonHash 和结构签名。
 - `add`：校验 3 个候选与关系（lineage 同族不同派 / contrast 同一轴 low/mid/high 跨≥2 family）、内容槽锁定、html 互异、html 无外链、生成 `candidates/r<n>-p<pos>.html`、更新 rounds.json、渲染 `round-<n>.html`；输出下一步。
 - `decide`：校验记录（schema/positions/每轮 ≤1 defer/理由合法），更新 state，追加台账事件 `shortlist.decisions`；pending 达 3 → 渲染 `final.html` 并提示 `final`；达到 4 轮或 12 个且**所有已生成轮次都已决策**仍未到 3 → 生成归因报告并提示不能用第 13 个。
 - `final`：**先跑一次完整性校验**（不过则拒绝）；kind=candidate → 写 `result.json`、台账 `shortlist.chosen`、提示「进入精调：用 probe.mjs 单轴 + JND」；kind=none → 先写 `shortlist.chosen` 再归因 → 写 `capability-gap.json`、台账 `capability.gap`。

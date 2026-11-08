@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 栏式长读：报头、通栏细线、密排目录，再把动作收进页脚。
+     像一份单栏刊物，不是居中海报。无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .edition {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    background: var(--surface);
+  }
+  .nameplate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0 10px;
+    border-top: 4px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+    text-align: center;
+  }
+  .shop {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: 30px;
+    font-weight: 650;
+    line-height: 1.12;
+  }
+  .tagline { margin: 0; max-width: 26em; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .rule { width: 100%; height: 0; margin: 0; border: 0; border-top: 1px solid var(--rule); }
+  .columns { flex: 1; min-height: 0; }
+  .list { margin: 0; padding: 0; list-style: none; }
+  .item {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px dotted var(--rule);
+  }
+  .num { color: var(--accent); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .book { font-family: var(--font-head); font-size: 15px; font-weight: 650; line-height: 1.35; }
+  .meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .colophon {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+  }
+  .cta {
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .foot { margin: 0; padding-top: 4px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 10px; text-align: center; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="editorial">
+  <article class="edition">
+    <header class="nameplate">
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <hr class="rule">
+    <div class="columns">
+      <ol class="list">
+        <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+      </ol>
+    </div>
+    <footer class="colophon">
+      <button class="cta" type="button">{{CTA}}</button>
+      <p class="foot">{{FOOT}}</p>
+    </footer>
+  </article>
+</body>
+</html>

@@ -40,9 +40,9 @@ check('ACCEPTANCE 不再写 8 个工具', () => {
   assert(text.includes('10 个工具'), 'ACCEPTANCE 应写「10 个工具」');
 });
 
-check('同步清单 probe-kit 计数与 sync-kit 当前口径一致（40）', () => {
+check('同步清单 probe-kit 计数与 sync-kit 当前口径一致（50）', () => {
   const manifest = JSON.parse(read('skills/design-kit/.sync-manifest.json'));
-  assert(manifest.probeKit === 40, 'sync manifest probeKit 应为 40，实际 ' + manifest.probeKit);
+  assert(manifest.probeKit === 50, 'sync manifest probeKit 应为 50，实际 ' + manifest.probeKit);
 });
 
 const failed = results.filter((item) => !item.ok);

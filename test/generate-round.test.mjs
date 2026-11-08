@@ -200,7 +200,7 @@ check('CLI：真实 brief → generate → add → verify，且 generate 本身�
     const stored = JSON.parse(readFileSync(join(runDir, 'brief.json'), 'utf8'));
     assert(stored.content.title === '北窗茶室', 'init 应保留显式内容槽');
     const ledgerBefore = readFileSync(ledger, 'utf8');
-    const generated = runCli(['generate', '--run', 'shortlist-runs/sl-phase1', '--round', '1', '--out', 'candidates/r1.json', '--ledger', ledger], cwd);
+    const generated = runCli(['generate', '--writer=worlds', '--run', 'shortlist-runs/sl-phase1', '--round', '1', '--out', 'candidates/r1.json', '--ledger', ledger], cwd);
     assert(generated.status === 0, 'generate 失败\n' + generated.stdout + '\n' + generated.stderr);
     assert(readFileSync(ledger, 'utf8') === ledgerBefore, '不带 --add 的 generate 不能写台账');
     assert(!generated.stdout.includes('shortlist.decisions'), 'generate 不应写 decide');

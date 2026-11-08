@@ -213,6 +213,8 @@ probe-kit/
 ├── lib/shortlist-recorder.mjs# 粗选轮次/终选状态机
 ├── lib/shortlist.mjs         # 理由 chips、关系校验、上限、归因、能力缺口
 ├── lib/worlds.mjs            # 12 张世界卡与候选渲染
+├── lib/archetypes.mjs        # 骨架库：关系抽签、内容槽、世界 token
+├── archetypes/               # 五张完整页骨架、索引、DISCIPLINE、NOTICE
 ├── lib/axis.mjs              # 轴定义、谱点、插值、JND
 ├── lib/ledger.mjs            # 台账事件、有效期、收敛判定
 ├── templates/presenter.html  # 精调：单轴盲呈现器
