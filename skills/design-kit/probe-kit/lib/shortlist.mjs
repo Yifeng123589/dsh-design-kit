@@ -1,5 +1,6 @@
 // shortlist 领域逻辑：理由 chips、候选关系校验、上限、归因、能力缺口。
 // 无 DOM、无第三方依赖；CLI 与测试共用。
+import { readContentSlots } from './worlds.mjs';
 
 export const DEFAULT_CAP = Object.freeze({ maxRounds: 4, perRound: 3, maxPending: 3 });
 export const WORLD_AXES = Object.freeze(['material', 'type', 'layout', 'color']);
@@ -261,9 +262,23 @@ export function validateCandidates(candidates, cap, relation) {
     errors.push(...validateRelation(relation, candidates.map((candidate) => candidate.world)));
     // 轴标签是调用方自报的，工具至少保证页面本体互不相同：完全相同 HTML 不能当三个候选。
     const htmlSet = new Set();
+    const slotSignatures = [];
     for (const [index, candidate] of candidates.entries()) {
       if (htmlSet.has(candidate.html)) errors.push(`candidates[${index}].html 与本轮另一个候选完全相同（不能用标签差异冒充风格差异）`);
       htmlSet.add(candidate.html);
+      const slots = readContentSlots(candidate.html);
+      if (slots === null) {
+        errors.push(`candidates[${index}].html 缺少可锁定的内容槽，或文档标题与主标题不一致（需要 title / subtitle / 3 条要点 / cta / foot）`);
+      } else {
+        slotSignatures.push(JSON.stringify(slots));
+      }
+    }
+    if (slotSignatures.length === candidates.length) {
+      for (let index = 1; index < slotSignatures.length; index += 1) {
+        if (slotSignatures[index] !== slotSignatures[0]) {
+          errors.push(`candidates[${index}] 的内容槽与本轮其他候选不一致（三页必须锁定同一 title / subtitle / bullets / cta / foot）`);
+        }
+      }
     }
   }
   return { ok: errors.length === 0, errors };

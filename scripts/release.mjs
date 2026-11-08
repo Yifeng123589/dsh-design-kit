@@ -56,7 +56,7 @@ runtime_size = write_zip(os.path.join(dist, "dsh-design-kit-runtime-v" + version
 compat_size = write_zip(os.path.join(dist, "dsh-design-kit-v" + version + ".zip"), runtime)
 
 fixtures = rels("test/fixtures") + rels("skills/design-kit/probe-kit/test")
-for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
+for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/generate-round.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
     if os.path.exists(os.path.join(root, rel)):
         fixtures.append(rel)
 fixtures_readme = """# dsh-design-kit fixtures

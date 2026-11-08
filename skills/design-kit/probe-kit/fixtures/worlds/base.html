@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>山径书店</title>
+<title>{{TITLE}}</title>
 <style>
-  /* 受控内容模板：12 个世界共用同一份内容与骨架，只替换模板占位符。
-     固定内容：店名、一句话、3 条书单条目、一个主按钮、演示页脚。视口 360×480。
+  /* 受控内容骨架：同一轮三个世界共用同一份内容槽，只替换视觉占位符。
+     内容槽：标题、副标题、3 条要点（正文 + 旁注）、主按钮、页脚。视口 360×480。
      纯 CSS 装饰：无图片、无 SVG、无 data URI、无外部字体、无网络。 */
   :root {
     --bg: {{BG}};
@@ -148,18 +148,18 @@
 <body class="{{LAYOUT_CLASS}}">
   <div class="sheet {{DECOR_CLASSES}}">
     <header class="masthead">
-      <h1 class="shop">山径书店</h1>
-      <p class="tagline">在老街二楼，只卖走得动路的书。</p>
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
     </header>
     <main class="shelf">
       <ul class="list">
-        <li class="item"><span class="num">01</span><span class="book">《山中最后一季》</span><span class="meta">自然 · 现货</span></li>
-        <li class="item"><span class="num">02</span><span class="book">《山径食谱》</span><span class="meta">生活 · 预订</span></li>
-        <li class="item"><span class="num">03</span><span class="book">《夜行笔记》</span><span class="meta">文学 · 现货</span></li>
+        <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
       </ul>
-      <button class="cta" type="button">查看本周书单</button>
+      <button class="cta" type="button">{{CTA}}</button>
     </main>
-    <p class="foot">演示内容，非真实书店</p>
+    <p class="foot">{{FOOT}}</p>
   </div>
 </body>
 </html>

@@ -49,20 +49,24 @@ license: MIT
 
 ## B. 粗选（方向选择）
 
-用 `probe_shortlist`。每轮恰好 3 个候选，且**候选之间必须声明关系**，工具会拒绝无关系/同族同派：
+用 `probe_shortlist`。**默认先 `generate`，再 `add`，再 `preview`。** 没有 `candidates/rN.json`（或已经 add 进回合）之前，禁止说「已经有三个方向」；不要手写三份 HTML 充数。
+
+`generate` 把 brief 收成一份内容槽（title / subtitle / 3 条要点 / cta / foot），按现成的 12 张世界卡渲染一轮 3 个完整页。三页文案相同，只换视觉世界。Phase 1 只做这件事：没有自由生成，也没有 archetype 池（Phase 2）。`generate` 不写 decide、不写台账；只有 `add` 才落账。
+
+每轮恰好 3 个候选，且**候选之间必须声明关系**。入库闸门会拒收：内容槽不一致、HTML 完全相同、或带外链。关系不成立同样拒绝：
 
 - `lineage`：同属一个 `family`，三个 `variant` 各不相同。
 - `contrast`：同一 `axis` 上 low / mid / high，且跨 ≥2 个 `family`。
 
 ```jsonc
 probe_shortlist({ "command": "init", "brief": "brief.json" })
-probe_shortlist({ "command": "add", "run": "shortlist-runs/<id>", "candidates": "r1.json", "contextToken": "fresh-a" })
-probe_shortlist({ "command": "report", "run": "shortlist-runs/<id>" })
+probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "add": true, "contextToken": "fresh-a" })
+probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
 ```
 
 ### 对话内三栏预览（默认体验）
 
-`add` 之后**先不要**让用户去浏览器：调用
+`generate` + `add` 之后**先不要**让用户去浏览器：调用
 
 ```jsonc
 probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
@@ -81,7 +85,7 @@ probe_shortlist_ui_action({ "payload": "<[probe-shortlist-ui] 后面的 JSON 字
 安全门（A3）：卡片携带**一次性预览令牌**（绑定 run / 轮次 / 候选，30 分钟过期，用一次即失效）。每张卡片有独立令牌，重复 preview 不会让旧卡片失效；只消费当前卡片的令牌。缺少、伪造、过期、轮次/候选不匹配的 payload 会被拒绝；被拒时**重新调用 `probe_shortlist_preview`** 让用户重点，不要手写或复用过令牌，也不要绕过它直接调 `probe_shortlist decide/final` 来伪造 UI 选择。
 
 它会写决策/终选文件并调 `shortlist.mjs` 落账。成功后：
-- `decide` → 若待定未满 3，生成下一轮候选后再次 `probe_shortlist_preview`；
+- `decide` → 若待定未满 3，对下一轮再 `generate`（不要手写三页）后再次 `probe_shortlist_preview`；
 - `final` → 读 `result.json`，进入精调或归因。
 
 如果客户端 view 没显示（例如旧宿主/非 Web 端），退回原来的「打开 round 页面、下载 decisions」流程；两条路都落同一套台账，不要同时用。
@@ -137,7 +141,7 @@ V0.2 闸门：
 node ui-craft/scripts/design-tokens.mjs --name <slug> --hue <0-360> --mood editorial --mode both --out <project>/tokens
 node ui-craft/scripts/design-lint.mjs <entry-or-dir> --json
 node ui-craft/scripts/capture.mjs <entry.html> --out .review
-node probe-kit/shortlist.mjs <init|add|decide|final|report|verify> ...
+node probe-kit/shortlist.mjs <init|generate|add|decide|final|report|verify> ...
 node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 ```
 
@@ -150,7 +154,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 | `design_tokens` | 生成 OKLCH 色板、字阶、间距、圆角、阴影、动效 token | 输出目录必填；对比度自检全绿 |
 | `design_lint` | 静态审 AI 味、对比度、排版、可访问性、中文排版 | error 要修完；exit 1 是正常结果 |
 | `design_capture` | 多宽度截图或 contact-sheet 降级页 | 无浏览器时 `unavailable=true`，不假装成功 |
-| `probe_shortlist` | 粗选 3 个有关系候选，删/待定/三选一，封顶归因 | 12 个上限、待定 3、理由 chip |
+| `probe_shortlist` | 粗选：先 generate 内容槽，再 add / 删/待定/三选一，封顶归因 | 先生成再预览；12 个上限、待定 3、内容槽锁定 |
 | `probe_shortlist_preview` | 读取当前轮/终选候选，返回对话内三栏 iframe 数据 | 只读；不改变回合状态 |
 | `probe_shortlist_ui_action` | 执行卡片发回的结构化 decide/final | 写决策文件并调 shortlist.mjs 落账 |
 | `probe_measure` | 单轴盲测 + JND + 台账 + 校准 | 一次一轴；凭证三态；区间不写精确值 |
@@ -182,7 +186,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 ## 诚实边界
 
 - `design_capture` 在无浏览器环境只能生成审阅页；不能替代人工目检。
-- 粗选的关系标签与 HTML 互异是工具能查的；「是否真的同族/真的相反」仍需人复核。
+- 粗选的关系标签、内容槽锁定与 HTML 互异是工具能查的；「是否真的同族/真的相反」仍需人复核。Phase 1 生成源只换 12 张世界卡的视觉，不发明新结构。
 - 删除理由是用户点的 chip，不是量化测量；能力类归因只做页面事实核查（支持/弱）。
 - 精调的 JND 部分来自单场景/单评审人；r5/r6 的 JND 是估值，结论按弱证据处理。
 - `deck_*` 只做质检/导出/渲染，**不生成内容**；需要 ppt-master + Python，渲染还需要 DSH 的 LibreOffice Kit。找不到依赖时工具返回中文原因，按 deck-handoff 手工兜底。

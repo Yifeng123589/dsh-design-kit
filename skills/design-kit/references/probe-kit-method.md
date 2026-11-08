@@ -16,33 +16,37 @@
 
 ## 粗选：有关系地比，不盲比
 
-每轮候选之间**必须声明关系**，没有关系的候选文件会被 `add` 拒绝：
+**先 generate，再 add，再 preview。** 回合里还没有这一轮候选时，不要声称已经有三个方向，也不要手写三份 HTML。Phase 1 的 writer 只做参数化世界卡：同一份内容槽套 12 张内置世界里的一轮。自由生成（模式 B）和 archetype 池（Phase 2）都还没做。
 
-- `lineage`（同族不同派）：三个候选同属一个 `family`，`variant` 各不相同。例：油画传统下印象派 / 写实派 / 表现派。
-- `contrast`（对比轴三档）：三个候选在同一个命名 `axis` 上分别取 `low` / `mid` / `high`，且跨至少 2 个 `family`。例：装饰密度从极简到繁复；或者极简 vs 华丽。
+`generate` 从 brief 得到三页共用的内容槽（title / subtitle / bullets 恰好 3 条 / cta / foot）。brief 可以自带 `content`；没有就按 title 和 prompt 做确定性截取。三页只换世界。`generate` 不写 decide、不写台账；`--add` / `add: true` 才把候选交给 `add` 落账。
+
+每轮候选之间**必须声明关系**。`add` 会拒收内容槽不一致、HTML 相同或带外链的文件：
+
+- `lineage`（同族不同派）：三个候选同属一个 `family`，`variant` 各不相同。Phase 1 的族是印刷传统 / 手作纸品 / 图像展示 / 信息呈现。
+- `contrast`（对比轴三档）：三个候选在同一个命名 `axis` 上分别取 `low` / `mid` / `high`，且跨至少 2 个 `family`。现成轴是 `ornament`（装饰密度）和 `image`（影像参与度）。
+
+`generate` 写出的候选 JSON 与 `add` 兼容（多出来的 writer / contentHash / skeletonHash / content 会被忽略）：
 
 ```jsonc
-// r1.json —— lineage
-{ "relation": "lineage", "family": "oil-painting",
-  "candidates": [ { "id": "oil-impression", "world": { "family": "oil-painting", "variant": "印象派",
+{ "relation": "lineage", "family": "print-tradition",
+  "writer": "phase1-worlds", "contentHash": "...", "skeletonHash": "...",
+  "candidates": [ { "id": "w-swiss", "world": { "family": "print-tradition", "variant": "理性网格",
     "material": "...", "type": "...", "layout": "...", "color": "..." }, "html": "<!doctype html>..." } ] }
-
-// r3.json —— contrast
-{ "relation": "contrast", "axis": "ornament",
-  "candidates": [ { "id": "calm", "world": { "family": "print-tradition", "variant": "理性网格",
-    "contrast": { "ornament": "low" }, "material": "...", "type": "...", "layout": "...", "color": "..." }, "html": "..." } ] }
 ```
 
 流程（`probe_shortlist`）：
 
 ```jsonc
 probe_shortlist({ "command": "init", "brief": "brief.json" })              // 建回合
-probe_shortlist({ "command": "add", "run": "shortlist-runs/<id>", "candidates": "r1.json", "contextToken": "fresh-a" })
+probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "add": true, "contextToken": "fresh-a" })
+probe_shortlist_preview({ "run": "shortlist-runs/<id>" })                  // 对话内三栏；不要跳过
 probe_shortlist({ "command": "decide", "run": "shortlist-runs/<id>", "round": 1, "decisions": "decisions-<runId>-r1.jsonl" })
 probe_shortlist({ "command": "final", "run": "shortlist-runs/<id>", "choice": "choice-<runId>.jsonl" })
 probe_shortlist({ "command": "report", "run": "shortlist-runs/<id>" })     // 理由直方图 + 世界覆盖 + 归因
 probe_shortlist({ "command": "verify", "run": "shortlist-runs/<id>" })     // 6 项完整性
 ```
+
+脚本等价物：`node shortlist.mjs generate --run <dir> --round 1 --add --context-token fresh-a`。只写文件、不入库时去掉 `--add`。
 
 默认把回合写到 `<会话 cwd>/shortlist-runs/`，台账写到 `<会话 cwd>/probe-kit-ledger/ledger.jsonl`；可用 `out` / `ledger` 覆盖。
 
@@ -52,7 +56,7 @@ probe_shortlist({ "command": "verify", "run": "shortlist-runs/<id>" })     // 6 
 - 上限固定 **4 轮 × 3 = 12 个、待定满 3**；`brief.cap` 不能放宽。
 - 待定满 3 后不能再 add/decide，只能 final；未 decide 上一轮不能生成下一轮。
 - final 前自动跑完整性校验；页面 HTML 有 `pageSha` 防篡改。
-- 同轮 HTML 必须互不相同；工具只能保证声明的族/轴与 HTML 互异，**真实风格差异由生成器负责**。
+- 同轮 HTML 必须互不相同，且三页内容槽（title / subtitle / 3 条要点 / cta / foot）必须一致；工具能查的是声明的族/轴、内容槽锁定与 HTML 互异，**世界之间像不像仍要人看**。
 
 ### 12 个用尽或终选「都不行」：先归因，不要自动换工具
 
@@ -103,13 +107,13 @@ probe_measure({ "command": "apply", "args": ["--run", "runs/<id>", "--out", "cal
 
 ## 与 ui-craft 的关系
 
-用 `ui-craft` 的方法生成方向/候选，但候选进入粗选前必须满足关系约束（lineage 或 contrast）。生成时每轮换独立上下文与材料家族，否则关系会坍缩成同质三胞胎。
+粗选候选走 `generate`（参数化世界卡），不要用 ui-craft 现写三页再塞进 `add`。ui-craft 仍负责模式 A 的正式页面。每轮换独立 `contextToken`，下一轮换 `round`（也就是换材料家族或对比轴），否则关系会坍缩成同质三胞胎。
 
 ## 诚实边界
 
 - 本工具不替代浏览器目检：页面只在静态层面验证，视觉溢出、字体回退、窄屏断行仍需人工看。
 - 删除理由是声明式信号（用户点的 chip），不是量化测量；能力类理由会核对候选页面里对应特征是否真的缺失（`capability-gap.evidence`，支持/弱两档），但这仍是核查不是证明。
-- 单评审人、候选由生成器提供：关系标签与 HTML 互异是工具能查的，「是否真的同族/真的相反」最终要人复核。
+- 单评审人、候选由 Phase 1 世界卡生成：关系标签、内容槽锁定与 HTML 互异是工具能查的，「是否真的同族/真的相反」最终要人复核。文案来自 brief 的内容槽或确定性截取，不是自由撰写。
 - 台账 append-only，不要手改；`verify` 失败时先修产物，不要绕过闸门。
 
 ## 汇报格式

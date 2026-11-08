@@ -13,7 +13,7 @@
 
 ```
 probe-kit/
-├── shortlist.mjs                 # CLI：init/add/decide/final/report/verify/status/demo
+├── shortlist.mjs                 # CLI：init/generate/add/decide/final/report/verify/status/demo
 ├── lib/
 │   ├── shortlist-recorder.mjs    # 轮次/终选状态机（无 DOM，页面与 Node 共用）— Lead
 │   ├── shortlist.mjs             # 关系校验、上限、待定、归因、能力缺口 — Lead
@@ -147,7 +147,8 @@ export const WORLDS = [ /* 12 个世界，4 族 × 3 variant */ ];
 export const WORLD_FAMILIES = [ { id, label, variants, worldIds } ];
 export const WORLD_ROUNDS = [ /* 4 轮计划：2 轮 lineage + 2 轮 contrast */ ];
 export function roundPlan(roundIndex) // 1-based：{ relation, family|axis, worlds }
-export function renderCandidate(world) // -> 完整 HTML 字符串（fixtures/worlds/base.html 替换占位符）
+export function renderCandidate(world, content?) // -> 完整 HTML；content 省略时用山径书店演示文案
+export function generateRound({ brief, relationPlan, round, content }) // -> add 兼容的候选 JSON；不写文件/台账
 ```
 
 每个世界（语义字段不参与渲染）：
@@ -162,7 +163,7 @@ export function renderCandidate(world) // -> 完整 HTML 字符串（fixtures/wo
   layoutClass: 'layout-grid', decor: ['rules'] }
 ```
 
-`fixtures/worlds/base.html`：固定内容（虚构「山径书店」hero：店名、一句话、3 条书单条目、一个主按钮、页脚演示说明），占位符 `{{BG}} {{SURFACE}} {{INK}} {{MUTED}} {{ACCENT}} {{ACCENT_INK}} {{RULE}} {{RADIUS}} {{FONT_HEAD}} {{FONT_BODY}} {{LAYOUT_CLASS}} {{DECOR_CLASSES}} {{DECOR_CSS}}`。所有 12 个世界共用同一内容与结构骨架，只有视觉世界不同；**不得使用外部字体/图片/网络**。
+`fixtures/worlds/base.html`：同一骨架，内容槽为 title / subtitle / 3 条要点 / cta / foot（占位符 `TITLE` `SUBTITLE` `BULLET_1`…`BULLET_3_META` `CTA` `FOOT`），视觉占位符 `BG` `SURFACE` `INK` `MUTED` `ACCENT` `ACCENT_INK` `RULE` `RADIUS` `FONT_HEAD` `FONT_BODY` `LAYOUT_CLASS` `DECOR_CLASSES` `DECOR_CSS`。不传 content 时渲染山径书店演示文案。同一轮三个世界共用同一内容槽，只有视觉世界不同；**不得使用外部字体/图片/网络**。`add` 会拒收内容槽不一致、HTML 相同或带外链的候选。
 
 **世界之间必须有关系，不能盲比**：
 
@@ -177,6 +178,7 @@ export function renderCandidate(world) // -> 完整 HTML 字符串（fixtures/wo
 
 ```
 node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
+node shortlist.mjs generate --brief <brief.json> | --run <dir> [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
 node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
 node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
 node shortlist.mjs final --run <dir> --choice <file.jsonl>
@@ -186,7 +188,8 @@ node shortlist.mjs status
 node shortlist.mjs demo [--scenario success|gap|both] [--out shortlist-runs]
 ```
 
-- `add`：校验 3 个候选与关系（lineage 同族不同派 / contrast 同一轴 low/mid/high 跨≥2 family）、html 无外链、生成 `candidates/r<n>-p<pos>.html`、更新 rounds.json、渲染 `round-<n>.html`；输出下一步。
+- `generate`：按 brief 内容槽和 `roundPlan` 渲染 3 个 HTML，写出可 `add` 的候选 JSON（附 `writer` / `contentHash` / `skeletonHash`）。不写 decide、不写台账。`--add` 交给 `add` 入库。
+- `add`：校验 3 个候选与关系（lineage 同族不同派 / contrast 同一轴 low/mid/high 跨≥2 family）、内容槽锁定、html 互异、html 无外链、生成 `candidates/r<n>-p<pos>.html`、更新 rounds.json、渲染 `round-<n>.html`；输出下一步。
 - `decide`：校验记录（schema/positions/每轮 ≤1 defer/理由合法），更新 state，追加台账事件 `shortlist.decisions`；pending 达 3 → 渲染 `final.html` 并提示 `final`；达到 4 轮或 12 个且**所有已生成轮次都已决策**仍未到 3 → 生成归因报告并提示不能用第 13 个。
 - `final`：**先跑一次完整性校验**（不过则拒绝）；kind=candidate → 写 `result.json`、台账 `shortlist.chosen`、提示「进入精调：用 probe.mjs 单轴 + JND」；kind=none → 先写 `shortlist.chosen` 再归因 → 写 `capability-gap.json`、台账 `capability.gap`。
 - 闸门：上限固定为 4 轮 / 12 个 / 待定 3 个，`brief.cap` 与此不符直接拒绝；待定满 3 后拒绝 add/decide；未 decide 上一轮拒绝 add；`state.finished` 后拒绝 decide；候选 id 跨轮唯一；同轮 HTML 必须互不相同。
