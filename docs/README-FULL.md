@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + `/dkit` 命令 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.8`
+- 版本：`0.1.9`
 - 技能：`design-kit`（1 个）
 - 命令：`/dkit`（1 个），把对话转成 design-kit 流程；可带需求
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
@@ -176,7 +176,7 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 
 ### 4.2 粗选：有关系的 3 个，删或待定
 
-候选必须先 `generate` 再 `add`。没有候选文件时不要说已经有三个方向，也不要手写三份 HTML。Phase 1 把 brief 收成一份内容槽（可写在 `content` 里；省略则按 title / prompt 确定性截取），套到一轮 3 个内置世界上。三页文案相同，只换视觉。Phase 2（archetype 池）和自由生成模式 B 未做。
+候选必须先 `generate` 再 `add`。没有候选文件时不要说已经有三个方向，也不要手写三份 HTML。brief 收成一份内容槽（可写在 `content` 里；省略则按 title / prompt 确定性截取），三页共用。默认把这槽填进三张结构不同的骨架，再套世界的颜色和字体；`writer: "worlds"` 才回到 12 张世界卡。自由生成模式 B 未做。
 
 `add` 会拒绝：没有关系、内容槽不一致、HTML 相同、或带外链。先写 brief（只有 `title` / `prompt` 必填；`cap` 固定 12，填了也不能放宽）：
 

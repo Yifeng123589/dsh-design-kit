@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 硬边分卡：三张各自成框的卡片叠在一块板上，粗线、硬阴影、实心按钮。
+     这是被点名的卡片骨架，不是生成器的默认页。无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .board {
+    height: calc(100% - 20px);
+    margin: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--surface);
+    border: 3px solid var(--ink);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .board > header { display: flex; flex-direction: column; gap: 4px; }
+  .shop {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 0.98;
+  }
+  .tagline { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .cards { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .num {
+    padding: 1px 5px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 10px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .book { font-size: 14px; font-weight: 750; line-height: 1.3; }
+  .meta { color: var(--ink); font-size: 11px; font-weight: 650; white-space: nowrap; }
+  .cta {
+    appearance: none;
+    width: 100%;
+    min-height: 44px;
+    margin-top: auto;
+    border: 3px solid var(--ink);
+    border-radius: 0;
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 4px 4px 0 var(--ink);
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .foot { margin: 0; font-size: 10px; font-weight: 700; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="brutal-cards">
+  <div class="board">
+    <header>
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <div class="cards">
+      <article class="card"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></article>
+      <article class="card"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></article>
+      <article class="card"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></article>
+    </div>
+    <button class="cta" type="button">{{CTA}}</button>
+    <p class="foot">{{FOOT}}</p>
+  </div>
+</body>
+</html>

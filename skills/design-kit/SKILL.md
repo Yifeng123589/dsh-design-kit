@@ -51,16 +51,19 @@ license: MIT
 
 用 `probe_shortlist`。**默认先 `generate`，再 `add`，再 `preview`。** 没有 `candidates/rN.json`（或已经 add 进回合）之前，禁止说「已经有三个方向」；不要手写三份 HTML 充数。
 
-`generate` 把 brief 收成一份内容槽（title / subtitle / 3 条要点 / cta / foot），按现成的 12 张世界卡渲染一轮 3 个完整页。三页文案相同，只换视觉世界。Phase 1 只做这件事：没有自由生成，也没有 archetype 池（Phase 2）。`generate` 不写 decide、不写台账；只有 `add` 才落账。
+`generate` 把 brief 收成一份内容槽（title / subtitle / 3 条要点 / cta / foot）。三页文案相同。默认 writer 是 `archetype`：按 lineage / contrast 从 [probe-kit/archetypes/](probe-kit/archetypes/index.json) 抽三张结构不同的完整页，再套世界卡的颜色和字体。骨架库缺失或为空时回落 `worlds`（12 张世界卡，同一骨架只换视觉）。要世界卡就传 `writer: "worlds"`。`generate` 不写 decide、不写台账；只有 `add` 才落账。
 
-每轮恰好 3 个候选，且**候选之间必须声明关系**。入库闸门会拒收：内容槽不一致、HTML 完全相同、或带外链。关系不成立同样拒绝：
+反模板纪律在 [probe-kit/archetypes/DISCIPLINE.md](probe-kit/archetypes/DISCIPLINE.md)。那是给骨架用的拒绝条件，不是打分引擎，也不内置外部 skill。
 
-- `lineage`：同属一个 `family`，三个 `variant` 各不相同。
-- `contrast`：同一 `axis` 上 low / mid / high，且跨 ≥2 个 `family`。
+每轮恰好 3 个候选，且**候选之间必须声明关系**。入库闸门会拒收：内容槽不一致、HTML 完全相同、带外链、关系不成立。archetype 还会拒收对不上的 `skeletonHash` 或和骨架文件不一样的结构。
+
+- `lineage`：同属一个 `family`，三个 `variant` 各不相同。骨架族是 `stage`（开场舞台）和 `press`（印刷硬边）。世界卡的族要加 `writer: "worlds"` 才走那 12 张卡。
+- `contrast`：同一 `axis` 上 low / mid / high，且跨 ≥2 个 `family`。轴是 `ornament` 和 `image`。
 
 ```jsonc
 probe_shortlist({ "command": "init", "brief": "brief.json" })
 probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "add": true, "contextToken": "fresh-a" })
+probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "writer": "worlds", "add": true, "contextToken": "fresh-a" })
 probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
 ```
 
@@ -154,7 +157,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 | `design_tokens` | 生成 OKLCH 色板、字阶、间距、圆角、阴影、动效 token | 输出目录必填；对比度自检全绿 |
 | `design_lint` | 静态审 AI 味、对比度、排版、可访问性、中文排版 | error 要修完；exit 1 是正常结果 |
 | `design_capture` | 多宽度截图或 contact-sheet 降级页 | 无浏览器时 `unavailable=true`，不假装成功 |
-| `probe_shortlist` | 粗选：先 generate 内容槽，再 add / 删/待定/三选一，封顶归因 | 先生成再预览；12 个上限、待定 3、内容槽锁定 |
+| `probe_shortlist` | 粗选：先 generate 内容槽（默认骨架库，可改 worlds），再 add / 删/待定/三选一，封顶归因 | 先生成再预览；12 个上限、待定 3、内容槽锁定、骨架哈希 |
 | `probe_shortlist_preview` | 读取当前轮/终选候选，返回对话内三栏 iframe 数据 | 只读；不改变回合状态 |
 | `probe_shortlist_ui_action` | 执行卡片发回的结构化 decide/final | 写决策文件并调 shortlist.mjs 落账 |
 | `probe_measure` | 单轴盲测 + JND + 台账 + 校准 | 一次一轴；凭证三态；区间不写精确值 |
@@ -175,6 +178,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 - `ui-craft/templates/DESIGN.md`：交付文档模板。
 - `probe-kit/PROTOCOL-V0.2.md`：代理/授权/判定边界与暂缓项。
 - `probe-kit/SPEC.md`、`probe-kit/SHORTLIST-SPEC.md`：协议与粗选条款。
+- `probe-kit/archetypes/DISCIPLINE.md`：骨架反模板纪律。`NOTICE.md` 记录来源；当前五张骨架没有 MIT 派生代码。
 
 ## 汇报格式
 
@@ -186,7 +190,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 ## 诚实边界
 
 - `design_capture` 在无浏览器环境只能生成审阅页；不能替代人工目检。
-- 粗选的关系标签、内容槽锁定与 HTML 互异是工具能查的；「是否真的同族/真的相反」仍需人复核。Phase 1 生成源只换 12 张世界卡的视觉，不发明新结构。
+- 粗选的关系标签、内容槽锁定、HTML 互异和骨架哈希是工具能查的；「是否真的同族/真的相反」仍需人复核。archetype 换的是页面结构，再套世界的颜色和字体；`writer: "worlds"` 仍只换 12 张世界卡的视觉。自由生成没有做。
 - 删除理由是用户点的 chip，不是量化测量；能力类归因只做页面事实核查（支持/弱）。
 - 精调的 JND 部分来自单场景/单评审人；r5/r6 的 JND 是估值，结论按弱证据处理。
 - `deck_*` 只做质检/导出/渲染，**不生成内容**；需要 ppt-master + Python，渲染还需要 DSH 的 LibreOffice Kit。找不到依赖时工具返回中文原因，按 deck-handoff 手工兜底。

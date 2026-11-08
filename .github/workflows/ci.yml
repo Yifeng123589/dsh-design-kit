@@ -21,6 +21,8 @@ jobs:
           node test/apply.mock.mjs
           node test/shortlist-ui-contract.test.mjs
           node test/docs-consistency.mjs
+          node test/generate-round.test.mjs
+          node test/archetype-round.test.mjs
 
       - name: Probe suite
         run: |

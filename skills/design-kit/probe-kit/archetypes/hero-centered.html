@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 居中论点：整页只有一条竖轴。标题居中，三点竖排，主动作落在轴上。
+     颜色、字体、圆角只来自世界 token。无图片、无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .stage {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 28px 22px 20px;
+    text-align: center;
+    background:
+      linear-gradient(var(--surface), var(--surface)) padding-box;
+  }
+  .hero { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 18em; }
+  .hero::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+  }
+  .shop {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: 34px;
+    font-weight: 650;
+    line-height: 1.12;
+    letter-spacing: 0;
+  }
+  .tagline { margin: 0; max-width: 22em; color: var(--muted); font-size: 13px; line-height: 1.65; }
+  .proof { width: min(100%, 280px); }
+  .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rule);
+  }
+  .num { color: var(--accent); font-size: 10px; letter-spacing: 0.14em; font-variant-numeric: tabular-nums; }
+  .book { font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .meta { color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .cta {
+    appearance: none;
+    min-width: 168px;
+    min-height: 44px;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .foot { margin: 0; color: var(--muted); font-size: 10px; letter-spacing: 0.04em; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="hero-centered">
+  <main class="stage">
+    <header class="hero">
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <section class="proof">
+      <ol class="list">
+        <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+      </ol>
+    </section>
+    <button class="cta" type="button">{{CTA}}</button>
+    <p class="foot">{{FOOT}}</p>
+  </main>
+</body>
+</html>

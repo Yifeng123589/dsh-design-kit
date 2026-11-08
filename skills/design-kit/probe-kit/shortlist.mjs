@@ -24,6 +24,7 @@ import {
   analyzeCapabilityEvidence,
 } from './lib/shortlist.mjs';
 import { createRoundSession, createFinalSession, inlineSource, SHORTLIST_VERSION } from './lib/shortlist-recorder.mjs';
+import { assertWriterPayload, auditStoredRound, generateArchetypeRound, loadPool, selectWriter } from './lib/archetypes.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // 默认产物写调用者 cwd，不写安装目录，避免只读安装或污染插件包。
@@ -370,7 +371,7 @@ async function cmdInit(args) {
   console.log(`\n已创建粗选回合 ${runId}`);
   console.log(`  目录: ${rel}`);
   console.log(`  上限: ${cap.maxRounds} 轮 × ${cap.perRound} 个 = ${cap.maxRounds * cap.perRound} 个候选，待定满 ${cap.maxPending} 个进入终选`);
-  console.log('\n下一步：先 generate 再 add（三页共用内容槽，不要手写 HTML），然后 preview：');
+  console.log('\n下一步：先 generate 再 add（三页共用内容槽，不要手写 HTML）。有骨架库时默认用 archetype，--writer=worlds 仍用世界卡。然后 preview：');
   console.log(`  node shortlist.mjs generate --run ${rel} --round 1 --add --context-token <fresh-token>`);
   return 0;
 }
@@ -414,6 +415,11 @@ function cmdAdd(args) {
   if (!Array.isArray(candidates)) throw new CliError('候选文件缺少 candidates 数组', 1);
   const validation = validateCandidates(candidates, cap, relation);
   if (!validation.ok) throw new CliError(`候选不合格：\n  - ${validation.errors.join('\n  - ')}`, 1);
+  try {
+    assertWriterPayload(raw);
+  } catch (error) {
+    throw new CliError(error.message, 1);
+  }
   const usedIds = new Set((rounds.rounds ?? []).flatMap((entry) => entry.candidates.map((candidate) => candidate.id)));
   for (const candidate of candidates) {
     if (usedIds.has(candidate.id)) throw new CliError(`候选 id 与之前轮次重复：${candidate.id}`, 1);
@@ -430,6 +436,9 @@ function cmdAdd(args) {
 
   const order = shuffled(candidates, seedFrom(`${brief.runId}:${round}:order`));
   const roundEntry = { round, relation, generationContext: contextToken, createdAt: nowIso(), candidates: [] };
+  if (typeof raw.writer === 'string' && raw.writer !== '') roundEntry.writer = raw.writer;
+  if (typeof raw.skeletonHash === 'string' && raw.skeletonHash !== '') roundEntry.skeletonHash = raw.skeletonHash;
+  if (typeof raw.contentHash === 'string' && raw.contentHash !== '') roundEntry.contentHash = raw.contentHash;
   for (const [index, candidate] of order.entries()) {
     const pos = index + 1;
     const relPath = join('candidates', `r${round}-p${pos}.html`);
@@ -442,6 +451,8 @@ function cmdAdd(args) {
       world: candidate.world,
       htmlSha: sha256Short(candidate.html),
       htmlPath: relPath,
+      ...(typeof candidate.archetypeId === 'string' && candidate.archetypeId !== '' ? { archetypeId: candidate.archetypeId } : {}),
+      ...(typeof candidate.skeletonHash === 'string' && candidate.skeletonHash !== '' ? { skeletonHash: candidate.skeletonHash } : {}),
     });
   }
   rounds.rounds.push(roundEntry);
@@ -824,6 +835,10 @@ function verifyRunDir(runDir) {
         roundHtml.add(candidate.htmlSha);
       }
     }
+    problems.push(...auditStoredRound(roundEntry, (candidate) => {
+      const abs = join(runDir, candidate.htmlPath);
+      return existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+    }));
     const decisions = state.decisionsByRound?.[roundEntry.round];
     if (decisions) {
       const decisionPositions = decisions.map((decision) => decision.pos).sort((a, b) => a - b);
@@ -1179,6 +1194,14 @@ async function cmdDemo(args) {
   return 0;
 }
 
+function readWriterFlag(flags) {
+  if (flags.writer === undefined) return undefined;
+  if (flags.writer !== 'worlds' && flags.writer !== 'archetype') {
+    throw new CliError('--writer 只能是 worlds 或 archetype', 2);
+  }
+  return flags.writer;
+}
+
 async function cmdGenerate(args) {
   let worlds;
   try {
@@ -1187,6 +1210,19 @@ async function cmdGenerate(args) {
     throw new CliError(`generate 需要 lib/worlds.mjs：${error.message}`, 1);
   }
   const flags = args.flags;
+  const requestedWriter = readWriterFlag(flags);
+  let pool;
+  try {
+    pool = loadPool();
+  } catch (error) {
+    throw new CliError(error.message, 1);
+  }
+  let writerName;
+  try {
+    writerName = selectWriter(requestedWriter, pool);
+  } catch (error) {
+    throw new CliError(error.message, 1);
+  }
   let brief;
   if (typeof flags.brief === 'string') {
     brief = readJson(resolve(process.cwd(), flags.brief), 'brief');
@@ -1233,12 +1269,13 @@ async function cmdGenerate(args) {
   }
   let payload;
   try {
-    payload = worlds.generateRound({
+    const input = {
       brief,
       ...(content !== undefined ? { content } : {}),
       ...(relationPlan ? { relationPlan } : {}),
       ...(planRound !== null ? { round: planRound } : {}),
-    });
+    };
+    payload = writerName === 'archetype' ? generateArchetypeRound({ ...input, pool }) : worlds.generateRound(input);
   } catch (error) {
     throw new CliError(error.message, error instanceof RangeError ? 2 : 1);
   }
@@ -1266,11 +1303,19 @@ async function cmdGenerate(args) {
   writeJson(outPath, payload);
   const relOut = relative(process.cwd(), outPath) || outPath;
   const relationLabel = `${payload.relation}${payload.family ? ' / ' + payload.family : ''}${payload.axis ? ' / ' + payload.axis : ''}`;
-  console.log(`\n已生成候选（${relationLabel}，计划轮次 ${fileRound}）`);
+  const sourceLabel = writerName === 'archetype' ? '骨架库' : '世界卡';
+  console.log(`\n已生成候选（${sourceLabel} · ${relationLabel}，计划轮次 ${fileRound}）`);
   console.log(`  文件: ${relOut}`);
+  console.log(`  来源: ${payload.writer}`);
   console.log(`  内容槽: ${payload.content.title} · ${payload.contentHash}`);
-  console.log(`  世界: ${payload.candidates.map((item) => item.id).join('、')}`);
-  console.log('  三页文案相同，只换视觉世界。generate 不写 decide、不写台账。');
+  console.log(`  骨架哈希: ${payload.skeletonHash}`);
+  if (writerName === 'archetype') {
+    console.log(`  骨架: ${payload.candidates.map((item) => item.archetypeId).join('、')}`);
+    console.log('  三页文案相同，结构不同，并套用世界的颜色和字体。generate 不写 decide、不写台账。');
+  } else {
+    console.log(`  世界: ${payload.candidates.map((item) => item.id).join('、')}`);
+    console.log('  三页文案相同，只换视觉世界。generate 不写 decide、不写台账。');
+  }
   if (!wantAdd) {
     const runHint = typeof flags.run === 'string'
       ? (relative(process.cwd(), resolve(process.cwd(), flags.run)) || flags.run)
@@ -1311,7 +1356,7 @@ function usage() {
 
 用法:
   node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
-  node shortlist.mjs generate --brief <brief.json> | --run <dir> [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
+  node shortlist.mjs generate --brief <brief.json> | --run <dir> [--writer worlds|archetype] [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
   node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
   node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
   node shortlist.mjs final --run <dir> --choice <file.jsonl>
@@ -1321,7 +1366,8 @@ function usage() {
   node shortlist.mjs demo [--scenario success|gap|both] [--out shortlist-runs]
 
 规则: 每轮 3 个候选，必须声明关系（lineage 同族不同派 / contrast 三档跨族）；三页锁定同一内容槽、HTML 互异、无外链，否则 add 拒收；
-      每轮最多待定 1 个；最多 4 轮 / 12 个；待定满 3 个三选一；
+      generate 默认：骨架库存在则用 archetype（结构不同的完整页 + 世界 token），否则回落 worlds。--writer=worlds 强制世界卡。
+      archetype 轮还会核对 skeletonHash 与结构签名。每轮最多待定 1 个；最多 4 轮 / 12 个；待定满 3 个三选一；
       用满 12 个或终选「都不行」→ 归因（capability/brief/taste/no-preference）并给出路由，不再生成第 13 个。
       generate 只写候选 JSON（可选 --add 交给 add 落账）；不写 decide，不自己写台账。
 
@@ -1330,7 +1376,7 @@ function usage() {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add']);
+  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add', 'writer']);
   for (const key of Object.keys(args.flags)) {
     if (!KNOWN_FLAGS.has(key)) throw new CliError(`未知参数 --${key}。用 --help 查看用法。`, 2);
   }

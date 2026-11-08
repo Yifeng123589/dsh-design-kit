@@ -16,23 +16,33 @@
 
 ## 粗选：有关系地比，不盲比
 
-**先 generate，再 add，再 preview。** 回合里还没有这一轮候选时，不要声称已经有三个方向，也不要手写三份 HTML。Phase 1 的 writer 只做参数化世界卡：同一份内容槽套 12 张内置世界里的一轮。自由生成（模式 B）和 archetype 池（Phase 2）都还没做。
+**先 generate，再 add，再 preview。** 回合里还没有这一轮候选时，不要声称已经有三个方向，也不要手写三份 HTML。
 
-`generate` 从 brief 得到三页共用的内容槽（title / subtitle / bullets 恰好 3 条 / cta / foot）。brief 可以自带 `content`；没有就按 title 和 prompt 做确定性截取。三页只换世界。`generate` 不写 decide、不写台账；`--add` / `add: true` 才把候选交给 `add` 落账。
+`generate` 从 brief 得到三页共用的内容槽（title / subtitle / bullets 恰好 3 条 / cta / foot）。brief 可以自带 `content`；没有就按 title 和 prompt 做确定性截取。`generate` 不写 decide、不写台账；`--add` / `add: true` 才把候选交给 `add` 落账。
 
-每轮候选之间**必须声明关系**。`add` 会拒收内容槽不一致、HTML 相同或带外链的文件：
+`--writer=worlds|archetype`。省略时：`probe-kit/archetypes/` 里有骨架就用 archetype，否则回落 worlds。
 
-- `lineage`（同族不同派）：三个候选同属一个 `family`，`variant` 各不相同。Phase 1 的族是印刷传统 / 手作纸品 / 图像展示 / 信息呈现。
-- `contrast`（对比轴三档）：三个候选在同一个命名 `axis` 上分别取 `low` / `mid` / `high`，且跨至少 2 个 `family`。现成轴是 `ornament`（装饰密度）和 `image`（影像参与度）。
+- `archetype`：按关系抽三张完整页骨架（结构不同），再套世界 token。首批五张：`hero-centered`、`hero-split`、`editorial`、`brutal-cards`、`minimal-band`。族是 `stage` / `press`。纪律见 [../probe-kit/archetypes/DISCIPLINE.md](../probe-kit/archetypes/DISCIPLINE.md)，来源见同目录 `NOTICE.md`。当前没有从 MIT 页面搬来的结构。
+- `worlds`：同一份内容槽套 12 张世界卡里的一轮，只换视觉。族是印刷传统 / 手作纸品 / 图像展示 / 信息呈现。
 
-`generate` 写出的候选 JSON 与 `add` 兼容（多出来的 writer / contentHash / skeletonHash / content 会被忽略）：
+自由生成（模式 B）没做。不从 Figma 转 HTML，也不运行外部 skill。
+
+每轮候选之间**必须声明关系**。`add` 会拒收内容槽不一致、HTML 相同或带外链的文件；archetype 还会拒收 skeletonHash 或结构签名对不上的文件：
+
+- `lineage`（同族不同派）：三个候选同属一个 `family`，`variant` 各不相同。
+- `contrast`（对比轴三档）：三个候选在同一个命名 `axis` 上分别取 `low` / `mid` / `high`，且跨至少 2 个 `family`。轴是 `ornament`（装饰密度）和 `image`（影像参与度）。
+
+`generate` 写出的候选 JSON 与 `add` 兼容。`writer` / `contentHash` / `skeletonHash` / `content` 会记进回合，供 verify 重算；decide 不读它们：
 
 ```jsonc
-{ "relation": "lineage", "family": "print-tradition",
-  "writer": "phase1-worlds", "contentHash": "...", "skeletonHash": "...",
-  "candidates": [ { "id": "w-swiss", "world": { "family": "print-tradition", "variant": "理性网格",
-    "material": "...", "type": "...", "layout": "...", "color": "..." }, "html": "<!doctype html>..." } ] }
+{ "relation": "lineage", "family": "stage",
+  "writer": "phase2-archetype", "contentHash": "...", "skeletonHash": "...",
+  "candidates": [ { "id": "hero-centered--w-swiss", "archetypeId": "hero-centered",
+    "world": { "family": "stage", "variant": "居中论点",
+    "material": "...", "type": "...", "layout": "居中首屏", "color": "..." }, "html": "<!doctype html>..." } ] }
 ```
+
+世界卡模式仍是 `writer: "phase1-worlds"`，`family` 例如 `print-tradition`。
 
 流程（`probe_shortlist`）：
 
@@ -46,7 +56,7 @@ probe_shortlist({ "command": "report", "run": "shortlist-runs/<id>" })     // �
 probe_shortlist({ "command": "verify", "run": "shortlist-runs/<id>" })     // 6 项完整性
 ```
 
-脚本等价物：`node shortlist.mjs generate --run <dir> --round 1 --add --context-token fresh-a`。只写文件、不入库时去掉 `--add`。
+脚本等价物：`node shortlist.mjs generate --run <dir> --round 1 --add --context-token fresh-a`。只要世界卡时加 `--writer=worlds`。只写文件、不入库时去掉 `--add`。
 
 默认把回合写到 `<会话 cwd>/shortlist-runs/`，台账写到 `<会话 cwd>/probe-kit-ledger/ledger.jsonl`；可用 `out` / `ledger` 覆盖。
 
@@ -56,7 +66,7 @@ probe_shortlist({ "command": "verify", "run": "shortlist-runs/<id>" })     // 6 
 - 上限固定 **4 轮 × 3 = 12 个、待定满 3**；`brief.cap` 不能放宽。
 - 待定满 3 后不能再 add/decide，只能 final；未 decide 上一轮不能生成下一轮。
 - final 前自动跑完整性校验；页面 HTML 有 `pageSha` 防篡改。
-- 同轮 HTML 必须互不相同，且三页内容槽（title / subtitle / 3 条要点 / cta / foot）必须一致；工具能查的是声明的族/轴、内容槽锁定与 HTML 互异，**世界之间像不像仍要人看**。
+- 同轮 HTML 必须互不相同，且三页内容槽（title / subtitle / 3 条要点 / cta / foot）必须一致。archetype 还要结构签名彼此不同，且和骨架文件的 skeletonHash 一致。工具能查的是声明的族/轴、内容槽锁定、结构差异与哈希，**像不像仍要人看**。
 
 ### 12 个用尽或终选「都不行」：先归因，不要自动换工具
 
@@ -113,7 +123,7 @@ probe_measure({ "command": "apply", "args": ["--run", "runs/<id>", "--out", "cal
 
 - 本工具不替代浏览器目检：页面只在静态层面验证，视觉溢出、字体回退、窄屏断行仍需人工看。
 - 删除理由是声明式信号（用户点的 chip），不是量化测量；能力类理由会核对候选页面里对应特征是否真的缺失（`capability-gap.evidence`，支持/弱两档），但这仍是核查不是证明。
-- 单评审人、候选由 Phase 1 世界卡生成：关系标签、内容槽锁定与 HTML 互异是工具能查的，「是否真的同族/真的相反」最终要人复核。文案来自 brief 的内容槽或确定性截取，不是自由撰写。
+- 单评审人、候选由骨架库或世界卡生成：关系标签、内容槽锁定、结构签名与 HTML 互异是工具能查的，「是否真的同族/真的相反」最终要人复核。文案来自 brief 的内容槽或确定性截取，不是自由撰写。
 - 台账 append-only，不要手改；`verify` 失败时先修产物，不要绕过闸门。
 
 ## 汇报格式

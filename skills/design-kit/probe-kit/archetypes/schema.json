@@ -1,0 +1,45 @@
+{
+  "schema": "archetype-meta/1",
+  "title": "粗选骨架索引",
+  "description": "archetypes/index.json 的形状。加载器按同一套字段检查，不依赖外部校验库。",
+  "index": {
+    "type": "object",
+    "required": ["schema", "writer", "discipline", "notice", "archetypes"],
+    "properties": {
+      "schema": { "const": "archetype-index/1" },
+      "writer": { "const": "phase2-archetype" },
+      "discipline": { "type": "string", "description": "纪律说明的相对路径" },
+      "notice": { "type": "string", "description": "许可证与来源说明的相对路径" },
+      "archetypes": { "type": "array", "minItems": 1, "items": { "$ref": "#/archetype" } }
+    }
+  },
+  "archetype": {
+    "type": "object",
+    "required": ["id", "file", "label", "family", "familyLabel", "variant", "axisTags", "contrast", "layout", "license", "sourceNote", "skeletonHash"],
+    "properties": {
+      "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+      "file": { "type": "string", "description": "相对 archetypes/ 的 HTML 文件名" },
+      "label": { "type": "string" },
+      "family": { "type": "string", "description": "lineage 用的大传统 id" },
+      "familyLabel": { "type": "string" },
+      "variant": { "type": "string", "description": "同族内的派别，族内不可重复" },
+      "axisTags": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "命名对比轴档位，形如 ornament:low、image:high，须与 contrast 一致"
+      },
+      "contrast": {
+        "type": "object",
+        "required": ["ornament", "image"],
+        "properties": {
+          "ornament": { "enum": ["low", "mid", "high"] },
+          "image": { "enum": ["low", "mid", "high"] }
+        }
+      },
+      "layout": { "type": "string", "description": "结构描述，写入候选 world.layout" },
+      "license": { "const": "MIT" },
+      "sourceNote": { "type": "string", "description": "来源说明。MIT 派生结构必须同时记入 NOTICE.md" },
+      "skeletonHash": { "type": "string", "description": "骨架文件 UTF-8 字节的 sha256 前 16 位" }
+    }
+  }
+}

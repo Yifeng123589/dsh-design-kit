@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.9
+
+### Added
+
+- 粗选骨架库：`probe-kit/archetypes/` 五张自写完整页（hero-centered、hero-split、editorial、brutal-cards、minimal-band），带 family / axisTags / license / sourceNote / skeletonHash。`NOTICE.md` 说明当前没有 MIT 派生代码。`DISCIPLINE.md` 是仓内反模板摘要，不内置外部 skill，也不做打分。
+- `generate --writer=worlds|archetype`。有骨架库时默认 archetype，库为空则回落 worlds。按 lineage / contrast 抽三张骨架，填入 Phase 1 内容槽，再套世界 token。`add` / `verify` 沿用内容槽、外链和关系闸门，并核对 skeletonHash 与结构签名。
+- 不新增宿主工具。对话仍走 `probe_shortlist` 的 `generate`。
+
+### Notes
+
+- 自由生成模式 B、Figma 转 HTML、未清洗的社区整页，都没做。writer 不写 decide，也不自己写台账。
+
 ## 0.1.8
 
 ### Added

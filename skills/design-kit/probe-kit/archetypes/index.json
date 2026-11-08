@@ -1,0 +1,78 @@
+{
+  "schema": "archetype-index/1",
+  "writer": "phase2-archetype",
+  "discipline": "DISCIPLINE.md",
+  "notice": "NOTICE.md",
+  "archetypes": [
+    {
+      "id": "hero-centered",
+      "file": "hero-centered.html",
+      "label": "居中论点",
+      "family": "stage",
+      "familyLabel": "开场舞台",
+      "variant": "居中论点",
+      "axisTags": ["ornament:mid", "image:low"],
+      "contrast": { "ornament": "mid", "image": "low" },
+      "layout": "居中首屏",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的居中首屏。没有复制外部页面。结构来源见 NOTICE.md。",
+      "skeletonHash": "da2219c2d2c7b0b5"
+    },
+    {
+      "id": "hero-split",
+      "file": "hero-split.html",
+      "label": "对切开场",
+      "family": "stage",
+      "familyLabel": "开场舞台",
+      "variant": "对切开场",
+      "axisTags": ["ornament:mid", "image:high"],
+      "contrast": { "ornament": "mid", "image": "high" },
+      "layout": "左右分栏",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的左右对开。左栏是色面，不是图片。没有复制外部页面。",
+      "skeletonHash": "b7149df51bf0dbf7"
+    },
+    {
+      "id": "editorial",
+      "file": "editorial.html",
+      "label": "栏式长读",
+      "family": "press",
+      "familyLabel": "印刷硬边",
+      "variant": "栏式长读",
+      "axisTags": ["ornament:mid", "image:mid"],
+      "contrast": { "ornament": "mid", "image": "mid" },
+      "layout": "编辑通栏",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的单栏刊物：报头、通栏细线、密排目录。没有复制外部页面。",
+      "skeletonHash": "9d494c99f58853f0"
+    },
+    {
+      "id": "brutal-cards",
+      "file": "brutal-cards.html",
+      "label": "硬边分卡",
+      "family": "press",
+      "familyLabel": "印刷硬边",
+      "variant": "硬边分卡",
+      "axisTags": ["ornament:high", "image:low"],
+      "contrast": { "ornament": "high", "image": "low" },
+      "layout": "硬边卡片",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的硬边分卡。卡片是这个骨架的结构，不是默认模板。没有复制外部页面。",
+      "skeletonHash": "d46c9f7656f5c544"
+    },
+    {
+      "id": "minimal-band",
+      "file": "minimal-band.html",
+      "label": "窄带收束",
+      "family": "stage",
+      "familyLabel": "开场舞台",
+      "variant": "窄带收束",
+      "axisTags": ["ornament:low", "image:low"],
+      "contrast": { "ornament": "low", "image": "low" },
+      "layout": "单带留白",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的单带留白。标题只占一条反色横带。没有复制外部页面。",
+      "skeletonHash": "6dcee6ec9d1b62a7"
+    }
+  ]
+}
