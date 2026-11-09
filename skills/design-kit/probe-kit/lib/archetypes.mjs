@@ -1,5 +1,5 @@
 /**
- * Phase 2 骨架库：五张结构不同的完整页，套进 Phase 1 的内容槽和世界 token。
+ * Phase 2 骨架库：九张结构不同的完整页，套进 Phase 1 的内容槽和世界 token。
  *
  * 关系仍是 lineage / contrast。lineage 在同一 family 里取三个 variant；
  * contrast 在一条命名轴上取 low / mid / high，且跨至少两个 family。
@@ -14,11 +14,14 @@ import { dirname, join, resolve } from 'node:path';
 
 import { EXTERNAL_PATTERNS, validateRelation } from './shortlist.mjs';
 import {
+  WORLDS,
   contentFromBrief,
   contentHash,
+  createSeededRng,
   getWorld,
   normalizeContent,
   readContentSlots,
+  shuffleWith,
   skeletonHash,
 } from './worlds.mjs';
 
@@ -56,7 +59,7 @@ const poolCache = new Map();
 /**
  * 4 轮计划。前两轮里第 1、4 轮是开场舞台的同族不同派；第 2、3 轮各走一条对比轴。
  * 每个格子是一张骨架加一张世界卡：结构来自骨架，颜色和字体来自世界 token。
- * 12 个世界各用一次，候选 id 因此跨轮不重复。
+ * 经典计划里 12 个世界各用一次，候选 id 因此跨轮不重复；pool 会从扩展库按 seed 另抽 12 个。
  */
 export const ARCHETYPE_ROUNDS = Object.freeze([
   Object.freeze({
@@ -260,6 +263,81 @@ function assertPoolPlans(byId) {
       throw new Error(`第 ${plan.round} 轮的骨架结构不可区分`);
     }
   }
+}
+
+function pickContrastArchetypes(axis, pool, rng) {
+  const groups = { low: [], mid: [], high: [] };
+  for (const archetype of pool.archetypes) {
+    const level = archetype.contrast?.[axis];
+    if (level === 'low' || level === 'mid' || level === 'high') groups[level].push(archetype);
+  }
+  const combos = [];
+  for (const low of groups.low) {
+    for (const mid of groups.mid) {
+      for (const high of groups.high) {
+        const picks = [low, mid, high];
+        if (new Set(picks.map((item) => item.family)).size < 2) continue;
+        if (new Set(picks.map((item) => item.signature)).size !== 3) continue;
+        if (validateRelation({ relation: 'contrast', axis }, picks).length > 0) continue;
+        combos.push(picks);
+      }
+    }
+  }
+  if (combos.length === 0) throw new Error(`骨架库没有可用的 ${axis} contrast 组合`);
+  return shuffleWith(combos, rng)[0];
+}
+
+/**
+ * 从扩展后的骨架库按 seed 抽 4 轮 × 3 = 12 个骨架与世界 token。
+ * 前两轮 lineage、后两轮 contrast；12 个 world token 不重复。
+ * 关系由骨架的 family / variant / contrast 决定，世界 token 只换颜色与字体。
+ */
+export function buildArchetypePoolPlan({ seed = 'archetype', pool = loadPool() } = {}) {
+  if (!pool || !Array.isArray(pool.archetypes) || pool.archetypes.length === 0) {
+    throw new Error('archetype 池为空，不能生成池计划');
+  }
+  const rng = createSeededRng(seed);
+  const byFamily = new Map();
+  for (const archetype of pool.archetypes) {
+    if (!byFamily.has(archetype.family)) byFamily.set(archetype.family, []);
+    byFamily.get(archetype.family).push(archetype);
+  }
+  const families = shuffleWith(
+    [...byFamily.keys()].filter((family) => byFamily.get(family).length >= 3),
+    rng,
+  );
+  if (families.length < 2) throw new Error('骨架库不足：至少需要 2 个含 3 个 variant 的 family');
+  const plans = [];
+  for (const family of families.slice(0, 2)) {
+    const picks = shuffleWith(byFamily.get(family), rng).slice(0, 3);
+    const errors = validateRelation({ relation: 'lineage', family }, picks);
+    if (errors.length > 0) throw new Error(`骨架 lineage 计划不成立：${errors.join('；')}`);
+    plans.push({ relation: 'lineage', family, familyLabel: picks[0].familyLabel, archetypes: picks });
+  }
+  const axes = shuffleWith(['ornament', 'image'], rng);
+  for (const axis of axes) {
+    const picks = pickContrastArchetypes(axis, pool, rng);
+    plans.push({ relation: 'contrast', axis, axisLabel: axis === 'ornament' ? '装饰密度' : '影像参与度', archetypes: picks });
+  }
+  const worldIds = shuffleWith(WORLDS.map((world) => world.id), rng).slice(0, 12);
+  if (worldIds.length !== 12) throw new Error('世界库不足 12 个 token');
+  let cursor = 0;
+  const result = plans.map((plan, index) => ({
+    round: index + 1,
+    relation: plan.relation,
+    ...(plan.family ? { family: plan.family, familyLabel: plan.familyLabel } : {}),
+    ...(plan.axis ? { axis: plan.axis, axisLabel: plan.axisLabel } : {}),
+    picks: plan.archetypes.map((archetype) => ({ archetypeId: archetype.id, worldId: worldIds[cursor++] })),
+  }));
+  const pairs = new Set();
+  for (const plan of result) {
+    for (const pick of plan.picks) {
+      const pair = `${pick.archetypeId}--${pick.worldId}`;
+      if (pairs.has(pair)) throw new Error(`骨架与世界组合重复：${pair}`);
+      pairs.add(pair);
+    }
+  }
+  return result;
 }
 
 function readPool(root) {
@@ -518,15 +596,21 @@ export function auditStoredRound(roundEntry, readHtml) {
  * 按关系抽出 3 个骨架，填同一份内容槽，再套世界 token。
  * 返回值可直接交给 add。不写文件。
  */
-export function generateArchetypeRound({ brief, relationPlan, round, content, pool } = {}) {
+export function generateArchetypeRound({ brief, relationPlan, round, content, pool, plan } = {}) {
   if (!brief || typeof brief !== 'object') throw new Error('generateArchetypeRound 需要 brief 对象');
   const loaded = pool ?? loadPool();
   if (!loaded.archetypes || loaded.archetypes.length === 0) throw new Error('archetype 池为空，不能生成');
   if (typeof brief.title !== 'string' || brief.title.trim() === '') throw new Error('brief.title 必须是非空字符串');
   if (typeof brief.prompt !== 'string' || brief.prompt.trim() === '') throw new Error('brief.prompt 必须是非空字符串');
   const slots = content !== undefined && content !== null ? normalizeContent(content) : contentFromBrief(brief);
-  const plan = resolveArchetypePlan({ relationPlan, round });
-  const candidates = plan.picks.map((pick) => {
+  const resolvedPlan = plan ?? resolveArchetypePlan({ relationPlan, round });
+  if (!resolvedPlan || typeof resolvedPlan !== 'object' || !Array.isArray(resolvedPlan.picks) || resolvedPlan.picks.length !== 3) {
+    throw new Error('archetype 计划必须包含 3 个 picks');
+  }
+  if (!Number.isInteger(resolvedPlan.round) || resolvedPlan.round < 1) {
+    throw new Error('archetype 计划必须带正整数 round');
+  }
+  const candidates = resolvedPlan.picks.map((pick) => {
     const archetype = loaded.byId.get(pick.archetypeId);
     if (!archetype) throw new Error(`骨架不在库里：${pick.archetypeId}`);
     const world = getWorld(pick.worldId);
@@ -539,10 +623,10 @@ export function generateArchetypeRound({ brief, relationPlan, round, content, po
     };
   });
   const payload = {
-    relation: plan.relation,
-    ...(plan.family ? { family: plan.family } : {}),
-    ...(plan.axis ? { axis: plan.axis } : {}),
-    round: plan.round,
+    relation: resolvedPlan.relation,
+    ...(resolvedPlan.family ? { family: resolvedPlan.family } : {}),
+    ...(resolvedPlan.axis ? { axis: resolvedPlan.axis } : {}),
+    round: resolvedPlan.round,
     writer: ARCHETYPE_WRITER_ID,
     contentHash: contentHash(slots),
     skeletonHash: roundSkeletonHash(candidates.map((candidate) => ({

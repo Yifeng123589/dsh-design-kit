@@ -324,6 +324,14 @@ await check('deck 发现逻辑：ppt-master / python / 渲染器', async () => {
     writeFileSync(cli, '');
     const renderer = resolveRenderer({ rendererCli: cli }, {}, process.execPath);
     assert(renderer.command === process.execPath && renderer.prefixArgs[0] === cli, '显式 rendererCli 应通过 node 调用');
+
+    const exe = join(tmp, 'dsoffice.exe');
+    writeFileSync(exe, '');
+    const binaryRenderer = resolveRenderer({ rendererCli: exe }, {}, process.execPath);
+    assert(
+      binaryRenderer.command === exe && binaryRenderer.prefixArgs.length === 0,
+      '显式原生可执行文件应直接执行，不应再交给 node',
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -427,6 +435,10 @@ await check('probe 工具参数校验与未知命令被拒', async () => {
   const missing = await shortlist.execute({ command: 'report' }, { cwd: process.cwd() });
   assert(missing.ok === false && missing.error.includes('run'), 'probe_shortlist 缺 run 应失败');
   assert((await shortlist.execute({ command: 'explode' }, { cwd: process.cwd() })).error.includes('未知 command'), '粗选未知命令');
+  const planMissing = await shortlist.execute({ command: 'plan' }, { cwd: process.cwd() });
+  assert(planMissing.ok === false && planMissing.error.includes('run'), 'probe_shortlist plan 缺 run 应失败');
+  const importMissing = await shortlist.execute({ command: 'import', run: 'x' }, { cwd: process.cwd() });
+  assert(importMissing.ok === false && importMissing.error.includes('bundle'), 'probe_shortlist import 缺 bundle 应失败');
   assert((await measure.execute({ command: 'explode' }, { cwd: process.cwd() })).error.includes('未知 command'), '精调未知命令');
 });
 
@@ -761,6 +773,103 @@ await check('A9 deck 依赖缺口：返回结构化 missing[]（缺什么/怎么
   }
 });
 
+function makePoolRun() {
+  const tmp = mkdtempSync(join(tmpdir(), 'ui-state-'));
+  const runDir = join(tmp, 'shortlist-runs', 'pool-run');
+  mkdirSync(join(runDir, 'candidates'), { recursive: true });
+  const candidates = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const htmlPath = 'candidates/pool-p' + index + '.html';
+    writeFileSync(join(runDir, htmlPath), '<!doctype html><html><body><h1>池 ' + index + '</h1></body></html>', 'utf8');
+    candidates.push({
+      id: 'pool-' + index,
+      poolIndex: index,
+      round: 1,
+      pos: index,
+      htmlPath,
+      world: { material: 'm', type: 't', layout: 'l', color: 'c' },
+    });
+  }
+  writeFileSync(
+    join(runDir, 'brief.json'),
+    JSON.stringify({ schema: 'shortlist-brief/1', title: 'ui state', prompt: 'ui state', runId: 'pool-run', cap: { maxRounds: 4, perRound: 3, maxPending: 3 } }),
+    'utf8',
+  );
+  writeFileSync(join(runDir, 'rounds.json'), JSON.stringify({ schema: 'shortlist-rounds/1', runId: 'pool-run', rounds: [] }), 'utf8');
+  writeFileSync(
+    join(runDir, 'state.json'),
+    JSON.stringify({ schema: 'shortlist-state/1', runId: 'pool-run', pending: [], eliminated: [], decisionsByRound: {}, nextRound: 1, generationContexts: [], finished: false, outcome: null }),
+    'utf8',
+  );
+  writeFileSync(
+    join(runDir, 'pool.json'),
+    JSON.stringify({ schema: 'shortlist-pool/1', runId: 'pool-run', cap: 12, window: 3, candidates }),
+    'utf8',
+  );
+  return { tmp, runDir, candidates };
+}
+
+await check('UI action 成功后同步状态机：pipeline → final → measure 放行', async () => {
+  const { tmp, runDir, candidates } = makePoolRun();
+  try {
+    const { ctx, registered } = makeCtx();
+    apply(ctx, {});
+    const previewTool = registered.tools.find((item) => item.name === 'probe_shortlist_preview');
+    const actionTool = registered.tools.find((item) => item.name === 'probe_shortlist_ui_action');
+    const measureTool = registered.tools.find((item) => item.name === 'probe_measure');
+    const first = candidates[0];
+    const record = {
+      schema: 'shortlist-likes/1',
+      runId: 'pool-run',
+      likes: [],
+      traits: [],
+      shortlist: [{ candidateId: first.id }],
+      draft: '',
+      seen: [first.id],
+      eliminated: [],
+      passed: [],
+    };
+
+    const preview = await previewTool.execute({ run: runDir }, { cwd: tmp });
+    assert(preview.ok === true && preview.mode === 'pool', 'pool preview 应成功：' + preview.error);
+    const pipeline = await actionTool.execute(
+      {
+        payload: JSON.stringify({ schema: 'shortlist-ui-action/1', kind: 'pipeline', run: runDir, uiToken: preview.uiToken, record }),
+      },
+      { cwd: tmp },
+    );
+    assert(pipeline.ok === true, 'pipeline 动作应成功：' + pipeline.error);
+    const statePath = join(tmp, '.design-kit-state.json');
+    const afterPipeline = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert(afterPipeline.shortlistFinished === false, 'pipeline 后仍应是未结束');
+    assert(resolve(afterPipeline.shortlistRun) === resolve(runDir), '应记录当前回合路径');
+
+    const finalPreview = await previewTool.execute({ run: runDir }, { cwd: tmp });
+    assert(finalPreview.ok === true && finalPreview.mode === 'pool', 'final 前应能再次预览：' + finalPreview.error);
+    const final = await actionTool.execute(
+      {
+        payload: JSON.stringify({
+          schema: 'shortlist-ui-action/1',
+          kind: 'final',
+          run: runDir,
+          uiToken: finalPreview.uiToken,
+          choice: { kind: 'shortlist', pos: 1 },
+          record,
+        }),
+      },
+      { cwd: tmp },
+    );
+    assert(final.ok === true, 'UI final 应成功：' + final.error);
+    const afterFinal = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert(afterFinal.shortlistFinished === true, 'UI final 必须回写 shortlistFinished=true');
+
+    const measure = await measureTool.execute({ command: 'demo' }, { cwd: tmp });
+    assert(!(measure.error ?? '').includes('尚未 final'), 'UI final 后 measure 不应再被状态机拦');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 await check('B2 状态机：粗选未 final 禁进精调，final 后放行', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'state-machine-'));
   try {
@@ -777,6 +886,19 @@ await check('B2 状态机：粗选未 final 禁进精调，final 后放行', asy
     assert(blocked.ok === false && blocked.error.includes('final'), '未 final 应拒绝 measure：' + blocked.error);
     const review = await measure.execute({ command: 'review' }, { cwd: tmp });
     assert(!(review.error ?? '').includes('尚未 final'), 'review 查看命令不应被状态机拦');
+
+    // 兼容旧 UI final：会话状态还写着 false，但回合 state.json 已经 finished。
+    const finishedRun = join(tmp, 'runs', 'sl-1');
+    mkdirSync(finishedRun, { recursive: true });
+    writeFileSync(
+      join(finishedRun, 'state.json'),
+      JSON.stringify({ schema: 'shortlist-state/1', finished: true, outcome: 'chosen' }),
+      'utf8',
+    );
+    const healed = await measure.execute({ command: 'demo' }, { cwd: tmp });
+    assert(!(healed.error ?? '').includes('尚未 final'), '回合 state.json 已结束时应放行并自愈');
+    const healedState = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert(healedState.shortlistFinished === true, '应以回合状态回写会话状态');
     writeFileSync(
       statePath,
       JSON.stringify({ schema: 'design-kit-state/1', phase: 'shortlist', shortlistRun: 'runs/sl-1', shortlistFinished: true }),
@@ -784,6 +906,21 @@ await check('B2 状态机：粗选未 final 禁进精调，final 后放行', asy
     );
     const allowed = await measure.execute({ command: 'demo' }, { cwd: tmp });
     assert(!(allowed.error ?? '').includes('尚未 final'), 'final 后不应再被状态机拦');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+await check('probe_measure ledger 参数会透传到 CLI', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'measure-ledger-'));
+  try {
+    const { ctx, registered } = makeCtx();
+    apply(ctx, {});
+    const measure = registered.tools.find((item) => item.name === 'probe_measure');
+    const result = await measure.execute({ command: 'status', ledger: 'custom/ledger.jsonl' }, { cwd: tmp });
+    assert(result.ok === true, 'status 应成功：' + result.error);
+    const expected = join(tmp, 'custom', 'ledger.jsonl');
+    assert((result.stdout ?? '').includes(expected), 'CLI 应收到自定义 ledger 路径，实际输出：' + result.stdout);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

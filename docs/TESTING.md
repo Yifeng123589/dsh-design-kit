@@ -5,6 +5,7 @@
 ```bash
 npm test                                  # mock 注册/契约/路径/令牌/命令/状态机 34 项
 node test/shortlist-ui-contract.test.mjs  # UI↔CLI 契约 5 项
+node test/external-import.test.mjs        # 外部 skill：plan/import/data-slot/脚本闸门 3 项
 node test/generate-round.test.mjs        # 世界卡生成源
 node test/archetype-round.test.mjs       # 骨架库：结构、对比、内容槽、worlds 回落
 node test/docs-consistency.mjs            # 文档工具计数 4 项

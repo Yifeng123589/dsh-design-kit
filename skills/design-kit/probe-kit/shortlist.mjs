@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // shortlist CLI：粗选（世界级候选）→ generate 内容槽 → 删/待定 → 待定到 3 个 → 三选一 → 归因/精调交接。
 // 零依赖，Node >= 18。规范见 SHORTLIST-SPEC.md。
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import * as ledger from './lib/ledger.mjs';
@@ -24,7 +24,7 @@ import {
   analyzeCapabilityEvidence,
 } from './lib/shortlist.mjs';
 import { createRoundSession, createFinalSession, inlineSource, SHORTLIST_VERSION } from './lib/shortlist-recorder.mjs';
-import { assertWriterPayload, auditStoredRound, generateArchetypeRound, loadPool, selectWriter } from './lib/archetypes.mjs';
+import { assertWriterPayload, auditStoredRound, buildArchetypePoolPlan, generateArchetypeRound, loadPool, selectWriter } from './lib/archetypes.mjs';
 import {
   LIKES_SCHEMA,
   POOL_CAP,
@@ -34,6 +34,7 @@ import {
   normalizeLikesRecord,
   traitSummary,
 } from './lib/pipeline.mjs';
+import { contentFromBrief, contentHash, normalizeContent, readContentSlots } from './lib/worlds.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // 默认产物写调用者 cwd，不写安装目录，避免只读安装或污染插件包。
@@ -364,6 +365,16 @@ async function cmdInit(args) {
   if (typeof raw.title !== 'string' || raw.title === '') throw new CliError('brief.title 必须是非空字符串');
   if (typeof raw.prompt !== 'string' || raw.prompt === '') throw new CliError('brief.prompt 必须是非空字符串');
   const cap = capOrThrow(raw.cap);
+  let content;
+  // 先校验内容槽，再创建回合目录；否则校验失败会在 shortlist-runs 留下空壳回合。
+  if (raw.content !== undefined) {
+    const worlds = await import('./lib/worlds.mjs');
+    try {
+      content = worlds.normalizeContent(raw.content);
+    } catch (error) {
+      throw new CliError(`brief.content 不合格：${error.message}`, 1);
+    }
+  }
   const outRoot = resolve(process.cwd(), typeof args.flags.out === 'string' ? args.flags.out : DEFAULT_OUT);
   const baseId =
     typeof args.flags['run-id'] === 'string' && args.flags['run-id'] !== ''
@@ -377,40 +388,42 @@ async function cmdInit(args) {
     suffix += 1;
     runDir = join(outRoot, runId);
   }
-  mkdirSync(runDir, { recursive: true });
   const now = nowIso();
-  let content;
-  if (raw.content !== undefined) {
-    const worlds = await import('./lib/worlds.mjs');
+  let brief;
+  try {
+    mkdirSync(runDir, { recursive: true });
+    brief = {
+      schema: 'shortlist-brief/1',
+      runId,
+      title: raw.title,
+      prompt: raw.prompt,
+      context: raw.context ?? {},
+      ...(content ? { content } : {}),
+      cap,
+      createdAt: now,
+    };
+    writeJson(join(runDir, 'brief.json'), brief);
+    writeJson(join(runDir, 'rounds.json'), { schema: 'shortlist-rounds/1', runId, rounds: [] });
+    writeJson(join(runDir, 'state.json'), {
+      schema: 'shortlist-state/1',
+      runId,
+      pending: [],
+      eliminated: [],
+      decisionsByRound: {},
+      nextRound: 1,
+      generationContexts: [],
+      finished: false,
+      outcome: null,
+    });
+  } catch (error) {
+    // 初始化写到一半失败时不要留下半成品回合；台账追加在 try 之外，失败也不回滚已建好的回合。
     try {
-      content = worlds.normalizeContent(raw.content);
-    } catch (error) {
-      throw new CliError(`brief.content 不合格：${error.message}`, 1);
+      rmSync(runDir, { recursive: true, force: true });
+    } catch {
+      // 清理失败不覆盖原始错误
     }
+    throw error;
   }
-  const brief = {
-    schema: 'shortlist-brief/1',
-    runId,
-    title: raw.title,
-    prompt: raw.prompt,
-    context: raw.context ?? {},
-    ...(content ? { content } : {}),
-    cap,
-    createdAt: now,
-  };
-  writeJson(join(runDir, 'brief.json'), brief);
-  writeJson(join(runDir, 'rounds.json'), { schema: 'shortlist-rounds/1', runId, rounds: [] });
-  writeJson(join(runDir, 'state.json'), {
-    schema: 'shortlist-state/1',
-    runId,
-    pending: [],
-    eliminated: [],
-    decisionsByRound: {},
-    nextRound: 1,
-    generationContexts: [],
-    finished: false,
-    outcome: null,
-  });
   const ledgerPath = resolveLedgerPath(args.flags);
   appendLedger(
     ledgerPath,
@@ -428,8 +441,8 @@ async function cmdInit(args) {
   console.log(`\n已创建粗选回合 ${runId}`);
   console.log(`  目录: ${rel}`);
   console.log(`  上限: ${cap.maxRounds} 轮 × ${cap.perRound} 个 = ${cap.maxRounds * cap.perRound} 个候选，待定满 ${cap.maxPending} 个进入终选`);
-  console.log('\n下一步：先 generate 再 add（三页共用内容槽，不要手写 HTML）。有骨架库时默认用 archetype，--writer=worlds 仍用世界卡。然后 preview：');
-  console.log(`  node shortlist.mjs generate --run ${rel} --round 1 --add --context-token <fresh-token>`);
+  console.log('\n下一步：默认先 pool 预生成 12 张（按 runId 从扩展库抽；同 seed 可复现），再 preview。只有经典三轮才走 generate → add → decide。');
+  console.log(`  node shortlist.mjs pool --run ${rel} [--seed <id>]`);
   return 0;
 }
 
@@ -933,6 +946,88 @@ function cmdReport(args) {
 }
 
 /** 校验一个粗选回合的完整性；返回 { ok, problems, checklist }，不打印、不改文件。 */
+function auditExternalPool(runDir, pool, brief) {
+  const problems = [];
+  if (pool.runId !== brief.runId) problems.push('pool.json 的 runId 与 brief 不一致');
+  if (!pool.skill || typeof pool.skill.id !== 'string' || typeof pool.skill.source !== 'string' || typeof pool.skill.license !== 'string') {
+    problems.push('外部池缺少 skill.id / skill.source / skill.license');
+  }
+  if (!Array.isArray(pool.candidates) || pool.candidates.length !== FIXED_CAP.maxRounds * FIXED_CAP.perRound) {
+    problems.push(`外部池应有 ${FIXED_CAP.maxRounds * FIXED_CAP.perRound} 个候选，实际 ${(pool.candidates ?? []).length}`);
+  }
+  const ids = new Set();
+  const htmlSet = new Set();
+  const byRound = new Map();
+  let slots = null;
+  for (const [index, candidate] of (pool.candidates ?? []).entries()) {
+    if (!candidate || typeof candidate !== 'object') {
+      problems.push(`外部池 candidates[${index}] 不是对象`);
+      continue;
+    }
+    if (typeof candidate.id !== 'string' || candidate.id === '') {
+      problems.push(`外部池 candidates[${index}].id 非法`);
+      continue;
+    }
+    if (ids.has(candidate.id)) problems.push(`外部池候选 id 重复：${candidate.id}`);
+    ids.add(candidate.id);
+    if (typeof candidate.htmlPath !== 'string' || candidate.htmlPath === '') {
+      problems.push(`外部池候选 ${candidate.id} 缺少 htmlPath`);
+      continue;
+    }
+    const abs = join(runDir, candidate.htmlPath);
+    if (!existsSync(abs)) {
+      problems.push(`外部池候选 HTML 缺失：${candidate.htmlPath}`);
+      continue;
+    }
+    const html = readFileSync(abs, 'utf8');
+    if (sha256Short(html) !== candidate.htmlSha) {
+      problems.push(`外部池候选 HTML 与 sha 不一致：${candidate.id}`);
+    }
+    if (htmlSet.has(html)) problems.push(`外部池候选 HTML 重复：${candidate.id}`);
+    htmlSet.add(html);
+    const candidateSlots = readContentSlots(html);
+    if (candidateSlots === null) {
+      problems.push(`外部池候选 ${candidate.id} 缺少内容槽`);
+    } else if (slots === null) {
+      slots = candidateSlots;
+    } else if (JSON.stringify(candidateSlots) !== JSON.stringify(slots)) {
+      problems.push(`外部池候选 ${candidate.id} 的内容槽与其他候选不一致`);
+    }
+    const round = Number(candidate.round);
+    if (!Number.isInteger(round) || round < 1 || round > FIXED_CAP.maxRounds) {
+      problems.push(`外部池候选 ${candidate.id} 的 round 非法`);
+      continue;
+    }
+    if (!byRound.has(round)) byRound.set(round, []);
+    byRound.get(round).push({ ...candidate, html });
+  }
+  if (ids.size !== 12) problems.push(`外部池 id 数应为 12，实际 ${ids.size}`);
+  if (slots !== null && pool.contentHash !== contentHash(slots)) {
+    problems.push('外部池 contentHash 与页面内容槽不一致');
+  }
+  for (const [round, list] of byRound) {
+    if (list.length !== FIXED_CAP.perRound) {
+      problems.push(`外部池第 ${round} 轮应有 ${FIXED_CAP.perRound} 个候选，实际 ${list.length}`);
+      continue;
+    }
+    const relation = list[0].relation;
+    if (!relation || typeof relation !== 'object') {
+      problems.push(`外部池第 ${round} 轮缺少 relation`);
+      continue;
+    }
+    for (const candidate of list) {
+      if (JSON.stringify(candidate.relation) !== JSON.stringify(relation)) {
+        problems.push(`外部池第 ${round} 轮的 relation 不一致`);
+        break;
+      }
+    }
+    const validation = validateCandidates(list, FIXED_CAP, relation);
+    for (const error of validation.errors) problems.push(`外部池第 ${round} 轮：${error}`);
+  }
+  if (byRound.size !== FIXED_CAP.maxRounds) problems.push(`外部池轮数应为 ${FIXED_CAP.maxRounds}，实际 ${byRound.size}`);
+  return problems;
+}
+
 function verifyRunDir(runDir) {
   const problems = [];
   let brief;
@@ -1123,8 +1218,19 @@ function verifyRunDir(runDir) {
     }
   }
 
+  let pool = null;
+  try {
+    pool = readPoolFile(runDir);
+  } catch (error) {
+    problems.push(`pool.json 读取失败：${error.message}`);
+  }
+  if (pool !== null && pool.writer === 'external') {
+    problems.push(...auditExternalPool(runDir, pool, brief));
+  }
+
   // checklist 按问题类别归属，避免「待定候选 HTML 缺失」同时点亮 HTML 和 pending 两项
   const classify = (problem) => {
+    if (/外部池|pool\.json/.test(problem)) return 'external';
     if (/final\.html|round-\d+\.html|pageSha|页面缺失/.test(problem)) return 'pages';
     if (/outcome|result\.json|capability-gap/.test(problem)) return 'outcome';
     if (/决策|待定超过/.test(problem)) return 'decisions';
@@ -1140,6 +1246,7 @@ function verifyRunDir(runDir) {
     ['轮次/候选/上限符合 4×3=12 与待定 3', clean('limits')],
     ['每轮关系成立且 HTML 互不相同', clean('relation')],
     ['候选与页面 HTML 的 sha 一致、无外链且未被篡改', clean('html', 'pages')],
+    ['外部池来源、12 页、内容槽与关系一致', clean('external')],
     ['决策与候选一一对应、轮次连续、每轮待定 ≤1', clean('decisions')],
     ['待定数正确且 ≤3', clean('pending')],
     ['收口产物与状态一致', clean('outcome')],
@@ -1518,7 +1625,7 @@ async function cmdGenerate(args) {
 }
 
 async function cmdPool(args) {
-  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs pool --run <dir> [--writer worlds|archetype]');
+  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs pool --run <dir> [--writer worlds|archetype] [--seed <id>]');
   const runDir = resolve(process.cwd(), runFlag);
   const { brief, rounds, state } = loadRun(runDir);
   capOrThrow(brief.cap);
@@ -1547,6 +1654,21 @@ async function cmdPool(args) {
       throw new CliError(`pool 需要 lib/worlds.mjs：${error.message}`, 1);
     }
   }
+  const seed =
+    typeof args.flags.seed === 'string' && args.flags.seed !== ''
+      ? args.flags.seed
+      : brief.runId;
+  let plans;
+  try {
+    plans = writerName === 'archetype'
+      ? buildArchetypePoolPlan({ seed, pool: archetypePool })
+      : worlds.buildWorldPoolPlan(seed);
+  } catch (error) {
+    throw new CliError(`池计划生成失败：${error.message}`, 1);
+  }
+  if (!Array.isArray(plans) || plans.length !== FIXED_CAP.maxRounds) {
+    throw new CliError(`池计划必须是 ${FIXED_CAP.maxRounds} 轮`, 1);
+  }
   const poolCandidates = [];
   const seenIds = new Set();
   let contentHash = '';
@@ -1554,8 +1676,8 @@ async function cmdPool(args) {
     let payload;
     try {
       payload = writerName === 'archetype'
-        ? generateArchetypeRound({ brief, round, pool: archetypePool })
-        : worlds.generateRound({ brief, round });
+        ? generateArchetypeRound({ brief, plan: plans[round - 1], pool: archetypePool })
+        : worlds.generateRound({ brief, relationPlan: plans[round - 1] });
     } catch (error) {
       throw new CliError(error.message, error instanceof RangeError ? 2 : 1);
     }
@@ -1571,7 +1693,12 @@ async function cmdPool(args) {
     } catch (error) {
       throw new CliError(error.message, 1);
     }
-    if (typeof payload.contentHash === 'string') contentHash = payload.contentHash;
+    if (typeof payload.contentHash === 'string') {
+      if (contentHash === '') contentHash = payload.contentHash;
+      else if (contentHash !== payload.contentHash) {
+        throw new CliError(`第 ${round} 轮内容槽哈希与第 1 轮不一致`, 1);
+      }
+    }
     for (const [index, candidate] of payload.candidates.entries()) {
       if (seenIds.has(candidate.id)) throw new CliError(`池内候选 id 重复：${candidate.id}`, 1);
       seenIds.add(candidate.id);
@@ -1603,6 +1730,7 @@ async function cmdPool(args) {
     cap: POOL_CAP,
     window: WINDOW_SIZE,
     writer: writerName,
+    seed,
     contentHash,
     likedTraits,
     candidates: poolCandidates,
@@ -1616,6 +1744,255 @@ async function cmdPool(args) {
     console.log(`  特征袋: ${likedTraits.length} 条`);
     for (const trait of likedTraits) console.log(`    - ${trait.candidateId} · ${trait.kind} · ${trait.text}`);
   }
+  return 0;
+}
+
+async function cmdPlan(args) {
+  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs plan --run <dir> [--seed <id>]');
+  const runDir = resolve(process.cwd(), runFlag);
+  const { brief, rounds, state } = loadRun(runDir);
+  capOrThrow(brief.cap);
+  if (state.finished === true) throw new CliError('该粗选已结束，不能再生成 plan', 1);
+  if ((rounds.rounds ?? []).length > 0) throw new CliError('已有轮次候选，不能再生成外部 plan', 1);
+  if (state.pending.length > 0) throw new CliError('已有待定候选，不能再生成外部 plan', 1);
+  if (existsSync(poolPath(runDir))) throw new CliError('预生成池已存在，不能再生成外部 plan', 1);
+  const seed =
+    typeof args.flags.seed === 'string' && args.flags.seed !== ''
+      ? args.flags.seed
+      : brief.runId;
+  const content = brief.content ? normalizeContent(brief.content) : contentFromBrief(brief);
+  const hash = contentHash(content);
+  const contract = {
+    schema: 'shortlist-html-contract/1',
+    slots: ['title', 'subtitle', 'bullet', 'meta', 'cta', 'foot'],
+    dataSlotAttribute: 'data-slot',
+    rules: [
+      '每页 <title> 与标题槽一致',
+      '标题 / 副标题 / 3 条要点 / CTA / 页脚使用 data-slot 或现有 class',
+      '同一轮三页内容槽必须完全一致，且等于 plan.content',
+      '无外链、无脚本、无外部字体/图片',
+      '同一轮 HTML 互不相同；整池 12 页互不相同',
+    ],
+    html: { minBytes: 200, maxBytes: 204800 },
+  };
+  const plan = {
+    schema: 'shortlist-external-plan/1',
+    runId: brief.runId,
+    writer: 'external',
+    seed,
+    planId: sha256Short(`${seed}:${hash}:${brief.runId}`),
+    content,
+    contentHash: hash,
+    contract,
+    rounds: [
+      {
+        round: 1,
+        relation: 'lineage',
+        familyHint: '由 skill 声明同一个 family，并给出三个不同 variant',
+        instruction: '三页属于同一设计家族，但派别/结构不同；import 时 relation.family 填同一个 family。',
+      },
+      {
+        round: 2,
+        relation: 'lineage',
+        familyHint: '由 skill 声明同一个 family，并给出三个不同 variant',
+        instruction: '另起一个设计家族，三页同族不同派；import 时 relation.family 填同一个 family。',
+      },
+      {
+        round: 3,
+        relation: 'contrast',
+        axis: 'ornament',
+        axisLabel: '装饰密度',
+        instruction: '同一装饰轴上 low / mid / high 各一页，且跨至少 2 个 family；在 candidate.world.contrast.ornament 填档位。',
+      },
+      {
+        round: 4,
+        relation: 'contrast',
+        axis: 'image',
+        axisLabel: '影像参与度',
+        instruction: '同一影像轴上 low / mid / high 各一页，且跨至少 2 个 family；在 candidate.world.contrast.image 填档位。',
+      },
+    ],
+    createdAt: nowIso(),
+  };
+  writeJson(join(runDir, 'plan.json'), plan);
+  console.log(`\n已生成外部生成计划 ${plan.planId}`);
+  console.log(`  文件: ${relative(process.cwd(), join(runDir, 'plan.json')) || 'plan.json'}`);
+  console.log(`  seed: ${seed}`);
+  console.log('  下一步：按 plan 生成 4 轮 × 3 个 HTML，写 import bundle，然后：');
+  console.log(`  node shortlist.mjs import --run ${relative(process.cwd(), runDir) || runDir} --bundle <bundle.json>`);
+  return 0;
+}
+
+function normalizeWorldDeclaration(world) {
+  if (!world || typeof world !== 'object') return world;
+  const axes = world.axes && typeof world.axes === 'object' ? world.axes : world;
+  return {
+    ...world,
+    material: axes.material ?? world.material,
+    type: axes.type ?? world.type,
+    layout: axes.layout ?? world.layout,
+    color: axes.color ?? world.color,
+  };
+}
+
+function importHtml(cwd, candidate, round, index) {
+  if (!candidate || typeof candidate !== 'object') {
+    throw new CliError(`第 ${round} 轮 candidates[${index}] 必须是对象`, 1);
+  }
+  if (typeof candidate.html === 'string' && candidate.html !== '') return candidate.html;
+  if (typeof candidate.htmlPath !== 'string' || candidate.htmlPath === '') {
+    throw new CliError(`第 ${round} 轮 candidates[${index}] 需要 html 或 htmlPath`, 1);
+  }
+  const abs = resolve(cwd, candidate.htmlPath);
+  const rel = relative(cwd, abs);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    throw new CliError(`第 ${round} 轮 candidates[${index}].htmlPath 必须位于当前工作目录内`, 1);
+  }
+  if (!existsSync(abs)) throw new CliError(`第 ${round} 轮 candidates[${index}].htmlPath 不存在：${candidate.htmlPath}`, 1);
+  return readFileSync(abs, 'utf8');
+}
+
+async function cmdImport(args) {
+  const runFlag = requireFlag(args.flags, 'run', '用法：node shortlist.mjs import --run <dir> --bundle <bundle.json>');
+  const bundleFlag = requireFlag(args.flags, 'bundle', '需要 --bundle <bundle.json>');
+  const runDir = resolve(process.cwd(), runFlag);
+  const { brief, rounds, state } = loadRun(runDir);
+  capOrThrow(brief.cap);
+  if (state.finished === true) throw new CliError('该粗选已结束，不能导入外部候选', 1);
+  if ((rounds.rounds ?? []).length > 0) throw new CliError('已有轮次候选，不能再导入外部池', 1);
+  if (state.pending.length > 0) throw new CliError('已有待定候选，不能再导入外部池', 1);
+  if (existsSync(poolPath(runDir))) throw new CliError('预生成池已存在，不能再导入', 1);
+  const planPath = join(runDir, 'plan.json');
+  if (!existsSync(planPath)) throw new CliError('先运行 plan 生成 plan.json，再 import', 1);
+  const plan = readJson(planPath, 'plan');
+  if (plan.schema !== 'shortlist-external-plan/1' || plan.runId !== brief.runId) {
+    throw new CliError('plan.json 不是当前回合的外部计划', 1);
+  }
+  const bundle = readJson(resolve(process.cwd(), bundleFlag), 'import bundle');
+  if (bundle.schema !== 'shortlist-external-import/1') {
+    throw new CliError('bundle.schema 应为 shortlist-external-import/1', 1);
+  }
+  if (bundle.writer !== 'external') throw new CliError('bundle.writer 应为 external', 1);
+  const skill = bundle.skill;
+  for (const key of ['id', 'source', 'license']) {
+    if (!skill || typeof skill[key] !== 'string' || skill[key] === '') {
+      throw new CliError(`bundle.skill.${key} 必须是非空字符串（记录来源与许可证）`, 1);
+    }
+  }
+  if (!Array.isArray(bundle.rounds) || bundle.rounds.length !== FIXED_CAP.maxRounds) {
+    throw new CliError(`bundle.rounds 必须恰好 ${FIXED_CAP.maxRounds} 轮`, 1);
+  }
+  const planRounds = new Map(
+    (Array.isArray(plan.rounds) ? plan.rounds : []).map((item) => [Number(item.round), item]),
+  );
+  if (planRounds.size !== FIXED_CAP.maxRounds) {
+    throw new CliError('plan.json 必须包含 4 轮计划', 1);
+  }
+  const sortedRounds = bundle.rounds.slice().sort((a, b) => Number(a.round) - Number(b.round));
+  const seenRounds = new Set();
+  const poolCandidates = [];
+  const seenIds = new Set();
+  const seenHtml = new Set();
+  let slots = null;
+  for (const roundEntry of sortedRounds) {
+    const round = Number(roundEntry.round);
+    if (!Number.isInteger(round) || round < 1 || round > FIXED_CAP.maxRounds) {
+      throw new CliError(`bundle 轮次非法：${JSON.stringify(roundEntry.round)}`, 1);
+    }
+    if (seenRounds.has(round)) throw new CliError(`bundle 轮次重复：${round}`, 1);
+    seenRounds.add(round);
+    const planRound = planRounds.get(round);
+    if (!planRound) throw new CliError(`plan 缺少第 ${round} 轮`, 1);
+    const relation = {
+      relation: roundEntry.relation?.relation,
+      ...(typeof roundEntry.relation?.family === 'string' && roundEntry.relation.family !== ''
+        ? { family: roundEntry.relation.family }
+        : {}),
+      ...(typeof roundEntry.relation?.axis === 'string' && roundEntry.relation.axis !== ''
+        ? { axis: roundEntry.relation.axis }
+        : {}),
+    };
+    if (relation.relation !== planRound.relation) {
+      throw new CliError(
+        `第 ${round} 轮关系与 plan 不一致：plan 要求 ${planRound.relation}，bundle 是 ${relation.relation}`,
+        1,
+      );
+    }
+    if (planRound.relation === 'contrast' && relation.axis !== planRound.axis) {
+      throw new CliError(
+        `第 ${round} 轮对比轴与 plan 不一致：plan 要求 ${planRound.axis}，bundle 是 ${relation.axis}`,
+        1,
+      );
+    }
+    const entries = roundEntry.candidates;
+    if (!Array.isArray(entries) || entries.length !== FIXED_CAP.perRound) {
+      throw new CliError(`第 ${round} 轮必须恰好 ${FIXED_CAP.perRound} 个候选`, 1);
+    }
+    const candidates = entries.map((candidate, index) => ({
+      id: candidate?.id,
+      world: normalizeWorldDeclaration(candidate?.world),
+      html: importHtml(process.cwd(), candidate, round, index),
+    }));
+    const validation = validateCandidates(candidates, FIXED_CAP, relation);
+    if (!validation.ok) {
+      throw new CliError(`第 ${round} 轮不能导入：\n  - ${validation.errors.join('\n  - ')}`, 1);
+    }
+    for (const candidate of candidates) {
+      if (seenIds.has(candidate.id)) throw new CliError(`候选 id 跨轮重复：${candidate.id}`, 1);
+      seenIds.add(candidate.id);
+      if (seenHtml.has(candidate.html)) throw new CliError(`候选 HTML 跨轮重复：${candidate.id}`, 1);
+      seenHtml.add(candidate.html);
+      const candidateSlots = readContentSlots(candidate.html);
+      if (candidateSlots === null) throw new CliError(`候选 ${candidate.id} 缺少内容槽`, 1);
+      if (slots === null) slots = candidateSlots;
+      else if (JSON.stringify(candidateSlots) !== JSON.stringify(slots)) {
+        throw new CliError(`候选 ${candidate.id} 的内容槽与整池其他候选不一致`, 1);
+      }
+      if (JSON.stringify(candidateSlots) !== JSON.stringify(plan.content)) {
+        throw new CliError(`候选 ${candidate.id} 的内容槽与 plan.content 不一致`, 1);
+      }
+    }
+    for (const [index, candidate] of candidates.entries()) {
+      const pos = index + 1;
+      const poolIndex = poolCandidates.length + 1;
+      if (poolIndex > POOL_CAP) throw new CliError(`池最多 ${POOL_CAP} 个候选`, 1);
+      const relPath = join('candidates', `pool-r${round}-p${pos}.html`);
+      const absPath = join(runDir, relPath);
+      mkdirSync(dirname(absPath), { recursive: true });
+      writeFileSync(absPath, candidate.html, 'utf8');
+      poolCandidates.push({
+        id: candidate.id,
+        poolIndex,
+        round,
+        pos,
+        world: candidate.world,
+        htmlSha: sha256Short(candidate.html),
+        htmlPath: relPath.replaceAll('\\', '/'),
+        relation,
+      });
+    }
+  }
+  if (seenIds.size !== FIXED_CAP.maxRounds * FIXED_CAP.perRound) {
+    throw new CliError('外部池必须恰好 12 个不同候选', 1);
+  }
+  const pool = {
+    schema: POOL_SCHEMA,
+    runId: brief.runId,
+    cap: POOL_CAP,
+    window: WINDOW_SIZE,
+    writer: 'external',
+    seed: typeof bundle.seed === 'string' && bundle.seed !== '' ? bundle.seed : plan.seed,
+    planId: plan.planId,
+    skill,
+    contentHash: plan.contentHash,
+    likedTraits: readTraitBag(runDir),
+    candidates: poolCandidates,
+  };
+  writeJson(poolPath(runDir), pool);
+  console.log(`\n已导入外部池 ${poolCandidates.length}/${POOL_CAP}`);
+  console.log(`  writer: external · skill: ${skill.id}`);
+  console.log(`  文件: ${relative(process.cwd(), poolPath(runDir)) || 'pool.json'}`);
+  console.log('  下一步：probe_shortlist_preview，然后按工作台流程选择。');
   return 0;
 }
 
@@ -1673,7 +2050,9 @@ function usage() {
 用法:
   node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
   node shortlist.mjs generate --brief <brief.json> | --run <dir> [--writer worlds|archetype] [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
-  node shortlist.mjs pool --run <dir> [--writer worlds|archetype]
+  node shortlist.mjs pool --run <dir> [--writer worlds|archetype] [--seed <id>]
+  node shortlist.mjs plan --run <dir> [--seed <id>]              # 外部 skill：生成 4 轮计划
+  node shortlist.mjs import --run <dir> --bundle <bundle.json>   # 外部 skill：导入 12 页
   node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
   node shortlist.mjs likes --run <dir> --file <likes.json>
   node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
@@ -1698,7 +2077,7 @@ function usage() {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add', 'writer', 'file']);
+  const KNOWN_FLAGS = new Set(['brief', 'run-id', 'out', 'run', 'candidates', 'context-token', 'round', 'decisions', 'choice', 'scenario', 'ledger', 'now', 'help', 'relation', 'family', 'axis', 'content', 'add', 'writer', 'file', 'seed', 'bundle']);
   for (const key of Object.keys(args.flags)) {
     if (!KNOWN_FLAGS.has(key)) throw new CliError(`未知参数 --${key}。用 --help 查看用法。`, 2);
   }
@@ -1707,6 +2086,8 @@ async function main() {
     init: cmdInit,
     generate: cmdGenerate,
     pool: cmdPool,
+    plan: cmdPlan,
+    import: cmdImport,
     add: cmdAdd,
     likes: cmdLikes,
     decide: cmdDecide,
@@ -1733,6 +2114,9 @@ async function main() {
 export {
   cmdInit,
   cmdGenerate,
+  cmdPool,
+  cmdPlan,
+  cmdImport,
   cmdAdd,
   cmdDecide,
   cmdFinal,

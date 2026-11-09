@@ -38,7 +38,7 @@ def write_zip(path, rel_files, extra_text=None):
     return os.path.getsize(path)
 
 runtime = [
-    "package.json", "cordis.patch.yml", "README.md", "LICENSE",
+    "package.json", "cordis.patch.yml", "README.md", "CHANGELOG.md", "LICENSE",
     "skills/design-kit/SKILL.md", "skills/design-kit/.sync-manifest.json",
 ]
 runtime += rels("lib")
@@ -56,7 +56,7 @@ runtime_size = write_zip(os.path.join(dist, "dsh-design-kit-runtime-v" + version
 compat_size = write_zip(os.path.join(dist, "dsh-design-kit-v" + version + ".zip"), runtime)
 
 fixtures = rels("test/fixtures") + rels("skills/design-kit/probe-kit/test")
-for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/generate-round.test.mjs", "test/archetype-round.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
+for rel in ["test/apply.mock.mjs", "test/shortlist-ui-contract.test.mjs", "test/generate-round.test.mjs", "test/archetype-round.test.mjs", "test/external-import.test.mjs", "test/docs-consistency.mjs", "test/release-check.mjs"]:
     if os.path.exists(os.path.join(root, rel)):
         fixtures.append(rel)
 fixtures_readme = """# dsh-design-kit fixtures
@@ -66,6 +66,7 @@ fixtures_readme = """# dsh-design-kit fixtures
 解压到插件根目录（与 lib/、skills/ 同级），或在仓库内直接运行：
   npm test
   node test/shortlist-ui-contract.test.mjs
+  node test/external-import.test.mjs
   node skills/design-kit/probe-kit/test/smoke.mjs
   node skills/design-kit/probe-kit/test/regression.test.mjs
   node skills/design-kit/probe-kit/test/axis-lock.test.mjs
@@ -96,9 +97,21 @@ docs_size = write_zip(
     {"dsh-design-kit-docs/README-DOCS.md": docs_readme},
 )
 
+# 完整源码 release：含 test/、scripts/、CHANGELOG 与开发文档，供二次开发/复核。
+source = [
+    "package.json", "cordis.patch.yml", "README.md", "CHANGELOG.md", "LICENSE",
+    "CONTRIBUTING.md", "SECURITY.md", ".gitattributes", ".gitignore",
+]
+for base in ["lib", "scripts", "test", "docs", "skills", "assets", ".github"]:
+    if os.path.isdir(os.path.join(root, base)):
+        source += rels(base)
+source = sorted(set(source))
+source_size = write_zip(os.path.join(dist, "dsh-design-kit-source-v" + version + ".zip"), source)
+
 with open(os.path.join(dist, "_release.json"), "w", encoding="utf8") as fh:
     json.dump({"runtime": runtime_size, "compat": compat_size, "fixtures": fixtures_size, "docs": docs_size,
-               "runtimeFiles": len(runtime), "fixtureEntries": len(fixtures), "docEntries": len(docs)}, fh)
+               "source": source_size, "runtimeFiles": len(runtime), "fixtureEntries": len(fixtures),
+               "docEntries": len(docs), "sourceEntries": len(source)}, fh)
 `;
 
 const python = process.platform === 'win32' ? 'python' : 'python3';
@@ -110,6 +123,7 @@ const artifacts = [
   { file: `dsh-design-kit-runtime-v${version}.zip`, use: '运行时：技能 + 10 工具 + 客户端；不含测试/证据/QA', bytes: result.runtime },
   { file: `dsh-design-kit-fixtures-v${version}.zip`, use: '测试与证据：真实回合夹具、回归/契约测试', bytes: result.fixtures },
   { file: `dsh-design-kit-docs-v${version}.zip`, use: '文档：验收、QA、粗选/精调协议与参考', bytes: result.docs },
+  { file: `dsh-design-kit-source-v${version}.zip`, use: '完整源码：lib/skills/test/scripts/docs/CHANGELOG，供二次开发与发布复核', bytes: result.source },
 ];
 const lines = [`# dsh-design-kit 发布物矩阵（${version}）`, '', '| 文件 | 用途 | 字节 |', '|---|---|---:|'];
 for (const item of artifacts) lines.push(`| ${item.file} | ${item.use} | ${item.bytes} |`);

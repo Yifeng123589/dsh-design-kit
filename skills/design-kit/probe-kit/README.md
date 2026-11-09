@@ -121,12 +121,16 @@ node probe.mjs apply --run r4-demo-1-r2 --out /tmp/cal.json --now 2026-11-25T00:
 
 ## 粗选模式（shortlist）
 
-精调之前先选「世界」。`shortlist` 是第二个交互模式。0.1.10 起，工作台用一个最多 12 张的池，窗里只亮 3 张：删除或路过就补位，整页短名单最多 3，不必每轮待定。喜欢和特征写在 `likes.json`。旧的轮次页仍是每轮 3 个候选、最多待定 1 个，待定满 3 进入三选一。用满 **12 个** 或终选「都不行」，就停止生成，先归因再决定下一步，不做第 13 个。
+精调之前先选「世界」。`shortlist` 是第二个交互模式。0.1.12 起，`pool` 从 18 张世界卡 / 9 张骨架里按 seed 抽最多 12 张进池，窗里只亮 3 张：删除或路过就补位，整页短名单最多 3，不必每轮待定。喜欢和特征写在 `likes.json`。旧的轮次页仍是每轮 3 个候选、最多待定 1 个，待定满 3 进入三选一。用满 **12 个** 或终选「都不行」，就停止生成，先归因再决定下一步，不做第 13 个。默认 seed 是 `brief.runId`，新回合会换组合；`--seed` 可复现。
 
 ```bash
-node shortlist.mjs pool --run shortlist-runs/<id>   # 预生成 ≤12，不写 decide / 台账
+node shortlist.mjs pool --run shortlist-runs/<id> [--seed <id>]   # 抽 ≤12，不写 decide / 台账
+node shortlist.mjs plan --run shortlist-runs/<id> [--seed <id>]   # 外部 skill：4 轮计划 + data-slot 契约
+node shortlist.mjs import --run shortlist-runs/<id> --bundle <bundle.json> # 外部 skill：导入 12 页
 node shortlist.mjs likes --run shortlist-runs/<id> --file likes.json
 ```
+
+外部 skill 的页面可以用 `data-slot="title|subtitle|bullet|meta|cta|foot"` 锁内容槽，不必套世界卡/骨架布局；`import` 会校验 4×3、内容槽等于 `plan.content`、关系、HTML 互异、无外链/脚本和 12 个不重复。
 
 ```bash
 cd probe-kit
@@ -143,7 +147,8 @@ node shortlist.mjs verify --run shortlist-runs/<id>
 
 - **每轮候选必须声明关系，不能盲比**：`lineage` = 同族不同派（同一 `family` 的三个不同 `variant`，如油画印象派/写实派/表现派）；`contrast` = 同一对比轴三档（同一 `axis` 上 `low/mid/high` 各一个，且跨 ≥2 个 `family`，如极简↔华丽）。候选文件是 `{ relation, family?/axis?, candidates:[...] }`，缺关系会被拒绝。
 - 同一轮候选的 HTML 必须互不相同；候选 HTML 不得有外链（含协议相对 `//`）。**工具只能校验声明的族/轴与 HTML 互异；「风格真的不同」由生成器负责**（建议每轮换独立上下文与材料家族）。
-- 内置 12 张世界卡分 4 族（印刷传统 / 手作纸品 / 图像展示 / 信息呈现）；4 轮演示计划 = 2 轮 lineage + 2 轮 contrast（装饰密度 / 影像参与度）。
+- 内置 18 张世界卡分 6 族（印刷传统 / 手作纸品 / 图像展示 / 信息呈现 / 公共现代 / 自然印刷）；`pool` 按 seed 抽 4 轮 = 2 轮 lineage + 2 轮 contrast（装饰密度 / 影像参与度），12 个世界不重复。经典 `generate` 仍用固定的 4 轮代表计划。
+- archetype 池的 12 个候选会复用骨架（常 6–9 个唯一结构），唯一性按 `archetypeId--worldId` 对计；结构差异有限，更多方向用 external skill 或 `writer: "worlds"`。
 - **上限固定**：4 轮 / 12 个 / 待定 3 个由工具强制，`brief.cap` 改成别的值会被拒绝；待定满 3 后不能再 add/decide，只能 final。
 - 每轮最多待定 1 个；每轮使用独立的 `generationContext`（连续相同会告警），避免候选关系坍缩成同质三胞胎。
 - 必须先 decide 上一轮才能生成下一轮；已结束的回合不能再落 decisions。
@@ -183,7 +188,7 @@ node test/selftest.mjs           # 32 个精调集成用例（状态机/轴/生�
 node test/side-effects.test.mjs  # 11 个轴副作用用例（颜色串维/声明位/三条轴 build-verify）
 node test/smoke.mjs              # 11 项仪器通电检查（三条轴/链路/凭证三态与门槛/授权/env_fp 复位/页面/插件结构）
 node test/regression.test.mjs    # 10 项真实运行回归夹具（R1-R3 结论复现）
-node test/worlds.test.mjs        # 12 张世界卡（4 族 × 3 variant）+ 4 轮关系计划（1179 项断言）
+node test/worlds.test.mjs        # 18 张世界卡（6 族 × 3 variant）+ seed 池计划（关系/复现断言）
 node test/shortlist-ui.test.mjs  # 82 条粗选页面静态断言
 node test/shortlist.test.mjs     # 32 个粗选用例（关系/状态机/归因/能力证据/上限闸门/CLI 全链路）
 node probe.mjs selftest          # 精调集成用例的 CLI 入口
@@ -213,20 +218,20 @@ node shortlist.mjs verify --run shortlist-runs/sl-demo-success
 ```
 probe-kit/
 ├── probe.mjs                 # 精调 CLI：demo/build/append/attribute/revoke/review/apply/status/verify/selftest
-├── shortlist.mjs             # 粗选 CLI：init/generate/add/decide/final/report/verify/demo/status
+├── shortlist.mjs             # 粗选 CLI：init/generate/pool/add/likes/decide/final/report/verify/demo/status
 ├── lib/recorder.mjs          # 指认状态机（无 DOM，浏览器与 Node 共用）
 ├── lib/shortlist-recorder.mjs# 粗选轮次/终选状态机
 ├── lib/shortlist.mjs         # 理由 chips、关系校验、上限、归因、能力缺口
-├── lib/worlds.mjs            # 12 张世界卡与候选渲染
+├── lib/worlds.mjs            # 18 张世界卡、候选渲染与 seed 池计划
 ├── lib/archetypes.mjs        # 骨架库：关系抽签、内容槽、世界 token
-├── archetypes/               # 五张完整页骨架、索引、DISCIPLINE、NOTICE
+├── archetypes/               # 九张完整页骨架、索引、DISCIPLINE、NOTICE
 ├── lib/axis.mjs              # 轴定义、谱点、插值、JND
 ├── lib/ledger.mjs            # 台账事件、有效期、收敛判定
 ├── templates/presenter.html  # 精调：单轴盲呈现器
 ├── templates/shortlist.html  # 粗选：轮次页
 ├── templates/shortlist-final.html # 粗选：终选页
 ├── fixtures/r4/base.html     # 精调受控内容模板
-├── fixtures/worlds/base.html # 12 个世界共用的受控内容骨架
+├── fixtures/worlds/base.html # 18 个世界共用的受控内容骨架
 ├── examples/                 # 模拟指认、示例台账、校准文件
 ├── runs/                     # 精调回合（run.html + run.json）
 ├── shortlist-runs/           # 粗选回合（brief/rounds/state/页面/候选）

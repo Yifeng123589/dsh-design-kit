@@ -7,7 +7,7 @@
 [![CI](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/Yifeng123589/dsh-design-kit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-- 版本：`0.1.10`
+- 版本：`0.1.13`
 - DSH 兼容：0.2.1-rc.5（真实宿主 A–E 已在 0.1.0–0.1.4 通过）；0.1.6 已在隔离 profile + DSH 0.2.2-rc.1 验证 headless 工具调用与 Web 三栏卡片回写
 - 一个技能入口：`design-kit`
 - 一个斜杠命令：`/dkit`，把对话直接切到 design-kit 流程（可带需求）
@@ -19,7 +19,7 @@
 推荐下载 GitHub Release 的 **runtime** 包：
 
 ```
-dsh-design-kit-runtime-v0.1.10.zip
+dsh-design-kit-runtime-v0.1.13.zip
 ```
 
 解压后在 DSH 插件管理器选「本地目录」，或：
@@ -58,7 +58,7 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 | 你说的话 | 走哪条 | 产物 |
 |---|---|---|
 | 做个落地页 / 改界面 / 审 AI 味 | UI 交付 | 方向 + tokens + 页面 + lint 报告 + DESIGN.md |
-| 三个方向选一个 / 都差点意思 | 粗选 | 先 generate 锁定文案。默认三张结构不同的骨架，也可改回世界卡；删除/待定/三选一，12 个封顶后归因 |
+| 三个方向选一个 / 都差点意思 | 粗选 | 默认 `init → pool → preview`：从 18 张世界卡 / 9 张骨架里按 seed 抽 12 张，三张滑动窗；删除/路过补位，12 个封顶后归因 |
 | 红色收一点 / 字号 16 还是 18 | 精调 | 单轴盲测 + 台账 + JND 区间 + calibration |
 | 做成 PPT / 汇报 | PPT 交付 | deck_check → PPTX → PDF/PNG |
 
@@ -66,15 +66,20 @@ pnpm add "<解压后的 dsh-design-kit 目录>"
 
 - 声明不是证据；代理不是证明；chip 是弱先验，不是量化测量。
 - 粗选封顶仍是 12。工作台是 3 张滑动窗：删除或路过就从池里补位，整页短名单最多 3，不必每轮待定。旧的轮次页仍是每轮最多 1 个待定。先 `generate` 或 `pool` 再预览；三页文案相同、HTML 必须互异、无外链。特征袋空且没有短名单时不能 final。
-- 生成源默认用五张骨架（居中、对开、刊物、硬边卡片、窄带）。`--writer=worlds` 仍是 12 张世界卡。自由生成模式 B 还没做。
+- 生成源默认从九张骨架（居中、对开、窄带、偏移、清单、刊物、索引、硬边卡片、堆叠海报）和十八张世界卡里抽；`pool` 每次按 seed 抽 12 张，同 seed 可复现，新回合默认换组合。`--writer=worlds` 走世界卡路径。
+- archetype 池的 12 个候选会**复用骨架**（实测常只有 6–9 个唯一结构）：唯一性按 `archetypeId--worldId` 对计，靠 12 个不同 world token 换颜色/字体。想要更多结构差异，用户应走 external skill 或 `writer: "worlds"`。
+- 外部 skill 路线：`plan` 出 4 轮计划与 `data-slot` 内容契约 → 读 GitHub skill 的 `SKILL.md`/参考生成 12 页 → `import` 校验并组装 `pool.json`。插件只读 skill 文本，不执行其脚本；外部池同样走 preview/final/verify。
 - 精调一次一轴，结论写等效区间，不写精确值。
 - deck 依赖 ppt-master + Python + LibreOffice Kit；缺依赖返回结构化 `missing[]`，不假装成功。
 
 ## 开发与测试
 
+> 下面这些命令要在**源码仓库**运行。runtime 安装包只含插件本体 + README / CHANGELOG / LICENSE，不含 `test/`、`scripts/` 和源码；测试夹具在 fixtures 发布物里。runtime 不是 Release 源，发布请用仓库里的 `scripts/release.mjs`。
+
 ```bash
 npm test
 node test/shortlist-ui-contract.test.mjs
+node test/external-import.test.mjs
 node test/generate-round.test.mjs
 node test/archetype-round.test.mjs
 node test/docs-consistency.mjs
@@ -90,6 +95,8 @@ node scripts/release.mjs
 node test/release-check.mjs
 npm pack --pack-destination dist
 ```
+
+发布物：`runtime`（安装用）、`fixtures`（测试/证据）、`docs`（验收/协议）、`source`（完整源码，含 `test/`、`scripts/`、`CHANGELOG`）。runtime 不是源码发布源。
 
 - 测试与真实宿主验收清单：[docs/TESTING.md](docs/TESTING.md)
 - 变更记录：[CHANGELOG.md](CHANGELOG.md)
@@ -111,7 +118,7 @@ cordis.patch.yml             DSH bundle patch
 - 路径牢笼与一次性令牌不是完整安全沙箱；只从可信来源安装。
 - 旧插件 `dsh-ui-craft` / `dsh-probe-kit` 不要与本插件同时安装。
 - 0.1.7 的 `/dkit` 命令与自定义删除理由已过本地 mock/契约测试；真实宿主斜杠菜单与卡片输入尚未独立复验，升级后需重启 DSH 再点一轮确认。
-- 0.1.9 的骨架库是五张自写完整页，默认 generate 用它们。brief 没写 `content` 时，要点仍是从 title / prompt 截出来的，不是自由撰写。`--writer=worlds` 保持世界卡路径。
+- 0.1.13 起可选外部 skill：`plan` → agent 读 `SKILL.md`/参考生成 12 页 → `import`。插件只读文本、不执行 skill 脚本；生成质量取决于模型与 skill。built-in 自由生成模式 B 仍未做，模板池仍是 fallback/对照。brief 没写 `content` 时，要点仍是从 title / prompt 截出来的。
 
 ## License
 
