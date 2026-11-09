@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 索引刊物：左侧一条窄索引栏，右侧是正文与清单。
+     索引栏只放编号与短标签，不重复正文；无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .page {
+    height: 100%;
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    background: var(--surface);
+  }
+  .index {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px 12px 18px;
+    border-right: 1px solid var(--rule);
+    background: var(--bg);
+  }
+  .index-title { margin: 0 0 6px; color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: 0.16em; }
+  .toc { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+  .toc li { display: flex; flex-direction: column; gap: 2px; }
+  .toc .no { color: var(--accent); font-family: var(--font-head); font-size: 18px; line-height: 1; }
+  .toc .tag { color: var(--muted); font-size: 9px; line-height: 1.3; }
+  .copy { display: flex; flex-direction: column; gap: 13px; padding: 22px 18px 16px; min-width: 0; }
+  .shop { margin: 0; font-family: var(--font-head); font-size: 31px; font-weight: 700; line-height: 1.06; }
+  .tagline { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.65; }
+  .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .item:last-child { border-bottom: 1px solid var(--rule); }
+  .book { font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .meta { color: var(--accent); font-size: 10px; white-space: nowrap; }
+  .cta {
+    appearance: none;
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 9px 16px;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .foot { margin: auto 0 0; color: var(--muted); font-size: 10px; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="editorial-index">
+  <main class="page">
+    <aside class="index" aria-label="索引">
+      <p class="index-title">INDEX</p>
+      <ol class="toc">
+        <li><span class="no">01</span><span class="tag">开场</span></li>
+        <li><span class="no">02</span><span class="tag">要点</span></li>
+        <li><span class="no">03</span><span class="tag">行动</span></li>
+      </ol>
+    </aside>
+    <article class="copy">
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+      <ol class="list">
+        <li class="item"><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+      </ol>
+      <button class="cta" type="button">{{CTA}}</button>
+      <p class="foot">{{FOOT}}</p>
+    </article>
+  </main>
+</body>
+</html>

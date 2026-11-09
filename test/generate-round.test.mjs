@@ -9,7 +9,12 @@ import { fileURLToPath } from 'node:url';
 import { EXTERNAL_PATTERNS, validateCandidates, DEFAULT_CAP } from '../skills/design-kit/probe-kit/lib/shortlist.mjs';
 import {
   DEFAULT_CONTENT,
+  WORLD_FAMILIES,
+  WORLDS,
   WRITER_ID,
+  assertRoundDiversity,
+  assertWorldPoolPlan,
+  buildWorldPoolPlan,
   contentFromBrief,
   generateRound,
   getWorld,
@@ -65,6 +70,35 @@ check('12 个世界共用默认内容槽，HTML 互异且无外链', () => {
   for (const html of pages) {
     assert(!html.includes('{{'), '渲染后不应残留占位符');
     assert(!hasExternal(html), '渲染结果不应有外链');
+  }
+});
+
+check('扩展世界库 18 个世界、6 族，池计划按 seed 抽 12 个且关系成立', () => {
+  assert(WORLDS.length === 18, '应有 18 个世界，实际 ' + WORLDS.length);
+  assert(WORLD_FAMILIES.length === 6, '应有 6 个 family，实际 ' + WORLD_FAMILIES.length);
+  for (const family of WORLD_FAMILIES) {
+    const members = WORLDS.filter((world) => world.family === family.id);
+    assert(members.length === 3, `${family.id} 应有 3 个 variant，实际 ${members.length}`);
+    assert(new Set(members.map((world) => world.variant)).size === 3, `${family.id} 的 variant 应互不相同`);
+    assertRoundDiversity(members);
+  }
+  const ids = (plans) => plans.flatMap((plan) => plan.worlds.map((world) => world.id));
+  const first = buildWorldPoolPlan('seed-a');
+  const again = buildWorldPoolPlan('seed-a');
+  const other = buildWorldPoolPlan('seed-b');
+  assertWorldPoolPlan(first);
+  assertWorldPoolPlan(other);
+  assert(ids(first).length === 12 && new Set(ids(first)).size === 12, '池计划应恰好 12 个不同世界');
+  assert(ids(first).join(',') === ids(again).join(','), '同 seed 应复现同一批');
+  assert(ids(first).join(',') !== ids(other).join(','), '不同 seed 应抽到不同组合');
+  for (const plan of first) {
+    const payload = generateRound({ brief: { ...REAL_BRIEF, content: EXPLICIT }, relationPlan: plan });
+    const validation = validateCandidates(payload.candidates, DEFAULT_CAP, {
+      relation: plan.relation,
+      ...(plan.family ? { family: plan.family } : {}),
+      ...(plan.axis ? { axis: plan.axis } : {}),
+    });
+    assert(validation.ok, '池计划应能入库：' + validation.errors.join(' | '));
   }
 });
 
@@ -186,6 +220,31 @@ check('内容槽不一致、HTML 相同、缺骨架都不能 add', () => {
 function runCli(args, cwd) {
   return spawnSync(process.execPath, [SHORTLIST, ...args], { cwd, encoding: 'utf8' });
 }
+
+check('CLI：init 内容槽校验失败时不留下空回合目录', () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'gen-init-fail-'));
+  try {
+    writeFileSync(
+      join(cwd, 'bad-brief.json'),
+      JSON.stringify({
+        ...REAL_BRIEF,
+        content: { ...EXPLICIT, cta: '这是一个明显超过十六个字符的按钮文案' },
+      }),
+      'utf8',
+    );
+    const result = runCli(
+      ['init', '--brief', 'bad-brief.json', '--run-id', 'sl-bad', '--out', 'shortlist-runs'],
+      cwd,
+    );
+    assert(result.status === 1, '非法内容槽应退出 1\n' + result.stdout + '\n' + result.stderr);
+    assert(
+      !existsSync(join(cwd, 'shortlist-runs', 'sl-bad')),
+      'init 校验失败后不应留下空回合目录',
+    );
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
 
 check('CLI：真实 brief → generate → add → verify，且 generate 本身不写台账', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'gen-round-'));

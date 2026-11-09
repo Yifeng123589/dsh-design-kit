@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 堆叠海报：三条横向色带压满整页，标题在上、事实在中、动作在下。
+     色带承担结构，不用卡片；无图片、无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .stack { height: 100%; display: flex; flex-direction: column; }
+  .band-top {
+    flex: none;
+    padding: 24px 22px 18px;
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .shop { margin: 0; font-family: var(--font-head); font-size: 38px; font-weight: 800; line-height: 0.98; }
+  .tagline { margin: 10px 0 0; max-width: 22em; color: inherit; font-size: 12px; line-height: 1.5; opacity: 0.9; }
+  .band-mid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 16px 22px;
+    background: var(--surface);
+  }
+  .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 0;
+    border-top: 2px solid var(--ink);
+  }
+  .item:last-child { border-bottom: 2px solid var(--ink); }
+  .num { color: var(--accent); font-family: var(--font-head); font-size: 12px; font-weight: 700; }
+  .book { font-size: 15px; font-weight: 700; line-height: 1.35; }
+  .meta { color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .band-bottom {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 22px 18px;
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .cta {
+    appearance: none;
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 1px solid var(--bg);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--bg);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .foot { margin: 0; color: var(--bg); font-size: 9px; opacity: 0.72; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="poster-stack">
+  <div class="stack">
+    <header class="band-top">
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <section class="band-mid" aria-label="要点">
+      <ol class="list">
+        <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+      </ol>
+    </section>
+    <footer class="band-bottom">
+      <button class="cta" type="button">{{CTA}}</button>
+      <p class="foot">{{FOOT}}</p>
+    </footer>
+  </div>
+</body>
+</html>

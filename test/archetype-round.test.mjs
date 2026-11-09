@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import {
   ARCHETYPE_WRITER_ID,
   assertArchetypeCandidates,
+  buildArchetypePoolPlan,
   generateArchetypeRound,
   loadPool,
   selectWriter,
@@ -59,14 +60,24 @@ const EXPLICIT = {
   cta: '预约座位',
   foot: '三页文案相同',
 };
-const EXPECTED_IDS = ['hero-centered', 'hero-split', 'editorial', 'brutal-cards', 'minimal-band'];
+const EXPECTED_IDS = [
+  'hero-centered',
+  'hero-split',
+  'editorial',
+  'brutal-cards',
+  'minimal-band',
+  'hero-offset',
+  'minimal-list',
+  'editorial-index',
+  'poster-stack',
+];
 
-check('五张骨架结构签名彼此不同，且无外链', () => {
+check('九张骨架结构签名彼此不同，且无外链', () => {
   const pool = loadPool();
-  assert(pool.archetypes.length === 5, '应有 5 张骨架，实际 ' + pool.archetypes.length);
-  assert(EXPECTED_IDS.every((id) => pool.byId.has(id)), '五张骨架 id 应齐全');
+  assert(pool.archetypes.length === 9, '应有 9 张骨架，实际 ' + pool.archetypes.length);
+  assert(EXPECTED_IDS.every((id) => pool.byId.has(id)), '九张骨架 id 应齐全');
   const signatures = pool.archetypes.map((item) => item.signature);
-  assert(new Set(signatures).size === 5, '五张骨架的结构签名应彼此不同');
+  assert(new Set(signatures).size === 9, '九张骨架的结构签名应彼此不同');
   for (const archetype of pool.archetypes) {
     assert(!hasExternal(archetype.source), archetype.id + ' 含外链');
     assert(archetype.license === 'MIT', archetype.id + ' 许可证应为 MIT');
@@ -79,6 +90,32 @@ check('五张骨架结构签名彼此不同，且无外链', () => {
   assert(discipline.includes('反模板'), 'DISCIPLINE 应写明反模板');
   assert(!discipline.includes('github.com'), 'DISCIPLINE 不应挂外部仓库');
   assert(notice.includes('没有复制'), 'NOTICE 应说明当前骨架不是外部拷贝');
+});
+
+check('扩展骨架池按 seed 抽 4×3，关系成立且可复现', () => {
+  const pool = loadPool();
+  const ids = (plans) => plans.flatMap((plan) => plan.picks.map((pick) => pick.archetypeId + '@' + pick.worldId));
+  const first = buildArchetypePoolPlan({ seed: 'seed-a', pool });
+  const again = buildArchetypePoolPlan({ seed: 'seed-a', pool });
+  const other = buildArchetypePoolPlan({ seed: 'seed-b', pool });
+  assert(first.length === 4 && other.length === 4, '池计划应有 4 轮');
+  const firstIds = ids(first);
+  assert(new Set(firstIds).size === 12, '池计划应使用 12 个不同的骨架/世界组合');
+  assert(firstIds.join(',') === ids(again).join(','), '同 seed 应复现同一批');
+  assert(firstIds.join(',') !== ids(other).join(','), '不同 seed 应抽到不同组合');
+  for (const plan of first) {
+    const archetypes = plan.picks.map((pick) => pool.byId.get(pick.archetypeId));
+    const relation = {
+      relation: plan.relation,
+      ...(plan.family ? { family: plan.family } : {}),
+      ...(plan.axis ? { axis: plan.axis } : {}),
+    };
+    assert(validateRelation(relation, archetypes).length === 0, `第 ${plan.round} 轮关系不成立`);
+    assert(new Set(archetypes.map((item) => item.signature)).size === 3, `第 ${plan.round} 轮结构不可区分`);
+    const payload = generateArchetypeRound({ brief: { ...REAL_BRIEF, content: EXPLICIT }, plan, pool });
+    const validation = validateCandidates(payload.candidates, DEFAULT_CAP, relation);
+    assert(validation.ok, `第 ${plan.round} 轮应能入库：${validation.errors.join(' | ')}`);
+  }
 });
 
 check('lineage 同族三派，结构不同且内容槽锁定', () => {

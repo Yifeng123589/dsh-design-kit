@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 极简清单：没有卡片和横带，整页就是一条左齐的清单。
+     大编号、发丝线、底部一个动作；结构本身就是信息层级。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .frame { height: 100%; display: flex; flex-direction: column; gap: 14px; padding: 28px 22px 18px; }
+  .top { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+  .shop { margin: 0; font-family: var(--font-head); font-size: 30px; font-weight: 700; line-height: 1.1; }
+  .tagline { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .item {
+    display: grid;
+    grid-template-columns: 46px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 8px;
+    align-items: baseline;
+    padding: 11px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .item:last-child { border-bottom: 1px solid var(--rule); }
+  .num { grid-row: 1 / span 2; color: var(--accent); font-family: var(--font-head); font-size: 28px; font-weight: 650; line-height: 1; }
+  .book { font-size: 15px; font-weight: 600; line-height: 1.4; }
+  .meta { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; }
+  .cta {
+    appearance: none;
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 2px solid var(--accent);
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .foot { margin: auto 0 0; color: var(--muted); font-size: 10px; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="minimal-list">
+  <main class="frame">
+    <header class="top">
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <ol class="list">
+      <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+      <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+      <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+    </ol>
+    <button class="cta" type="button">{{CTA}}</button>
+    <p class="foot">{{FOOT}}</p>
+  </main>
+</body>
+</html>

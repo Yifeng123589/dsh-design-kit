@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 偏移开场：一块偏离轴心的色面压住页角，标题左齐，事实行右移。
+     色面是结构，不是图片；无外链、无脚本。 */
+  :root {
+    --bg: {{BG}};
+    --surface: {{SURFACE}};
+    --ink: {{INK}};
+    --muted: {{MUTED}};
+    --accent: {{ACCENT}};
+    --accent-ink: {{ACCENT_INK}};
+    --rule: {{RULE}};
+    --radius: {{RADIUS}};
+    --font-head: {{FONT_HEAD}};
+    --font-body: {{FONT_BODY}};
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .stage {
+    position: relative;
+    height: 100%;
+    padding: 30px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .mark {
+    position: absolute;
+    top: -36px;
+    right: -34px;
+    width: 148px;
+    height: 148px;
+    background: var(--accent);
+    border-radius: var(--radius);
+    opacity: 0.92;
+  }
+  .hero { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 9px; max-width: 17em; }
+  .kicker { margin: 0; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+  .shop { margin: 0; font-family: var(--font-head); font-size: 36px; font-weight: 700; line-height: 1.05; }
+  .tagline { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+  .facts { margin: 0; display: flex; flex-direction: column; }
+  .list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .item {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 0 9px 8px;
+    border-top: 1px solid var(--rule);
+    border-left: 2px solid transparent;
+  }
+  .item:last-child { border-bottom: 1px solid var(--rule); }
+  .item:nth-child(2) { border-left-color: var(--accent); }
+  .num { color: var(--accent); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .book { font-size: 14px; font-weight: 600; line-height: 1.4; }
+  .meta { color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .cta {
+    appearance: none;
+    align-self: flex-start;
+    min-height: 44px;
+    padding: 10px 20px;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .foot { margin: auto 0 0; color: var(--muted); font-size: 10px; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+</style>
+</head>
+<body data-archetype="hero-offset">
+  <main class="stage">
+    <div class="mark" aria-hidden="true"></div>
+    <header class="hero">
+      <p class="kicker">FIELD NOTE 01</p>
+      <h1 class="shop">{{TITLE}}</h1>
+      <p class="tagline">{{SUBTITLE}}</p>
+    </header>
+    <section class="facts" aria-label="要点">
+      <ol class="list">
+        <li class="item"><span class="num">01</span><span class="book">{{BULLET_1}}</span><span class="meta">{{BULLET_1_META}}</span></li>
+        <li class="item"><span class="num">02</span><span class="book">{{BULLET_2}}</span><span class="meta">{{BULLET_2_META}}</span></li>
+        <li class="item"><span class="num">03</span><span class="book">{{BULLET_3}}</span><span class="meta">{{BULLET_3_META}}</span></li>
+      </ol>
+    </section>
+    <button class="cta" type="button">{{CTA}}</button>
+    <p class="foot">{{FOOT}}</p>
+  </main>
+</body>
+</html>

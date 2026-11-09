@@ -22,8 +22,9 @@
 
 `--writer=worlds|archetype`。省略时：`probe-kit/archetypes/` 里有骨架就用 archetype，否则回落 worlds。
 
-- `archetype`：按关系抽三张完整页骨架（结构不同），再套世界 token。首批五张：`hero-centered`、`hero-split`、`editorial`、`brutal-cards`、`minimal-band`。族是 `stage` / `press`。纪律见 [../probe-kit/archetypes/DISCIPLINE.md](../probe-kit/archetypes/DISCIPLINE.md)，来源见同目录 `NOTICE.md`。当前没有从 MIT 页面搬来的结构。
-- `worlds`：同一份内容槽套 12 张世界卡里的一轮，只换视觉。族是印刷传统 / 手作纸品 / 图像展示 / 信息呈现。
+- `archetype`：按关系抽三张完整页骨架（结构不同），再套世界 token。当前九张：`hero-centered`、`hero-split`、`editorial`、`brutal-cards`、`minimal-band`、`hero-offset`、`minimal-list`、`editorial-index`、`poster-stack`。族是 `stage` / `press`。纪律见 [../probe-kit/archetypes/DISCIPLINE.md](../probe-kit/archetypes/DISCIPLINE.md)，来源见同目录 `NOTICE.md`。当前没有从 MIT 页面搬来的结构。
+- `worlds`：同一份内容槽套世界卡，只换视觉。当前 18 张，分 6 族：印刷传统 / 手作纸品 / 图像展示 / 信息呈现 / 公共现代 / 自然印刷。
+- `pool` 从 18 张世界卡 / 9 张骨架里按 seed 抽 4 轮 × 3 = 12 张；默认 seed 是 `runId`，同 seed 可复现。经典 `generate` 仍用固定的 4 轮代表计划。
 
 自由生成（模式 B）没做。不从 Figma 转 HTML，也不运行外部 skill。
 

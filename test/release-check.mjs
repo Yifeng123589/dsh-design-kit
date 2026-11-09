@@ -52,6 +52,15 @@ check('runtime 包存在且不含测试/证据/QA', () => {
   assert(names.some((name) => name.endsWith('/lib/client.js')), 'runtime 应包含 client.js');
 });
 
+check('source 包含 test/scripts/CHANGELOG，可直接做二次开发', () => {
+  const names = listZip(artifact('source'));
+  assert(names.some((name) => name.endsWith('/test/apply.mock.mjs')), 'source 应包含 test/');
+  assert(names.some((name) => name.endsWith('/scripts/release.mjs')), 'source 应包含 scripts/');
+  assert(names.some((name) => name.endsWith('CHANGELOG.md')), 'source 应包含 CHANGELOG.md');
+  assert(names.some((name) => name.endsWith('/skills/design-kit/SKILL.md')), 'source 应包含技能');
+  assert(names.some((name) => name.endsWith('/package.json')), 'source 应包含 package.json');
+});
+
 check('fixtures 包含测试与真实回合夹具，docs 包含验收/QA/协议', () => {
   const fixtures = listZip(artifact('fixtures'));
   assert(fixtures.some((name) => name.endsWith('test/apply.mock.mjs')), 'fixtures 应包含 mock 测试');

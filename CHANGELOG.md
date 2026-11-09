@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.1.13
+
+### Added
+
+- 外部 skill 生成管线：`probe_shortlist plan` 写出 4 轮计划（2 轮 lineage + 2 轮 contrast）、锁定内容槽和 `data-slot` 内容契约；`probe_shortlist import` 导入外部 skill 生成的 12 页，校验后组装 `pool.json`，继续走 preview/final/verify。
+- `data-slot="title|subtitle|bullet|meta|cta|foot"` 内容契约：自由生成的页面不必套固定布局模板，只要保留这六个槽；现有 class 仍兼容。
+- 外部池审计：`verify` 检查 `skill.id/source/license`、`contentHash`、12 页 HTML 哈希、内容槽、关系、无外链和整池不重复。
+
+### Notes
+
+- 插件只读外部 skill 的 `SKILL.md` / `references/`，不执行其脚本；生成由 DSH 模型完成。
+- 外部生成不承诺位级复现；`plan.json`、`skill` 元数据和 HTML 哈希用于事后审计。
+- 模板池（18 世界 / 9 骨架）保留为 fallback、对照和回归夹具；built-in 自由生成模式 B 仍未做。
+
+## 0.1.12
+
+### Added
+
+- 生成源从 12 张世界卡扩到 18 张：新增「公共现代」（站牌系统、市政公告、航站楼屏）与「自然印刷」（植物图鉴、田野笔记、档案盒）两族，每族 3 个 variant。
+- 骨架库从 5 张扩到 9 张：新增 `hero-offset`、`minimal-list`、`editorial-index`、`poster-stack`，结构签名与内容槽均通过现有闸门。
+- `pool` 改为按 seed 从扩展库抽 4 轮 × 3 = 12 个候选：前两轮 lineage、后两轮 contrast，12 个世界不重复。默认 seed 是 `brief.runId`，所以新回合会得到新组合；`--seed` 可复现同一批。
+- `probe_shortlist` 新增可选 `seed` 参数；`pool.json` 记录 `seed` 与 `writer`，便于复查。
+- `init` 的下一条提示改为默认 `pool → preview`，与 0.1.11 的工作台默认流程一致。
+
+### Fixed
+
+- 世界/骨架池计划在生成前做关系、跨族、档位、结构签名与 12 个不重复校验；找不到有效组合时会重试并最终给出中文错误，不写出半成品池。
+- 池内各轮 `contentHash` 必须一致，避免混入不同内容槽的候选。
+
+### Tests
+
+- 新增 18 世界 / 6 族 / 9 骨架的计数与结构签名测试。
+- 新增世界池与骨架池的 seed 复现、不同 seed 变化、关系校验和入库测试。
+
+## 0.1.11
+
+### Fixed
+
+- 工作台动作（pipeline / decide / final）落账成功后同步 `.design-kit-state.json`。之前 UI 终选只写了回合 `state.json`，会话状态仍是 `shortlistFinished:false`，`probe_measure` 会被永久拦住；现在 UI final 后可直接进精调。
+- 兼容 0.1.10 及更早的旧状态：`unfinishedShortlist` 会读取当前回合的 `state.json`，发现 `finished:true` 就自动回写会话状态并放行，不需要手工改文件。
+- `probe_measure` 的 `ledger` 参数现在真正透传为 `--ledger`；`measureRun` 也从 `args` 里的 `--run` 取值，不再读取不存在的 `args.run`。
+- `shortlist.mjs init` 先校验 `brief.content` 再创建回合目录；初始化写到一半失败会清理半成品目录，不再在 `shortlist-runs/` 留下空壳回合。
+- 工作台浮层收到新的 preview 令牌时会重挂载候选卡，避免复用的 `seen` / 短名单 / 特征状态串到下一轮。
+- 显式 `rendererCli` 指向原生可执行文件（如 `.exe`）时直接执行，不再错误地交给 `node`；`.js` / `.cjs` / `.mjs` 仍通过 node 调用。
+
+### Tests
+
+- 新增 UI 动作 → 状态机 → measure 的端到端回归；新增 `probe_measure` 自定义 ledger 回归；新增 init 失败不留空目录回归；新增原生渲染器路径回归。
+
 ## 0.1.10
 
 ### Added

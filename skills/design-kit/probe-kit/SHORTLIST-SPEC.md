@@ -13,11 +13,11 @@
 
 ```
 probe-kit/
-├── shortlist.mjs                 # CLI：init/generate/add/decide/final/report/verify/status/demo
+├── shortlist.mjs                 # CLI：init/generate/pool/plan/import/add/likes/decide/final/report/verify/status/demo
 ├── lib/
 │   ├── shortlist-recorder.mjs    # 轮次/终选状态机（无 DOM，页面与 Node 共用）— Lead
 │   ├── shortlist.mjs             # 关系校验、上限、待定、归因、能力缺口 — Lead
-│   └── worlds.mjs                # 12 张世界卡 + 渲染 — shortlist-worlds
+│   └── worlds.mjs                # 18 张世界卡 + 渲染 + seed 池计划 — shortlist-worlds
 ├── fixtures/worlds/base.html     # 受控内容模板（山径书店 hero）— shortlist-worlds
 ├── templates/
 │   ├── shortlist.html            # 轮次页 — shortlist-ui
@@ -143,10 +143,11 @@ export function inlineSource(source) // 复用 recorder 的实现思路
 ```js
 export const WORLD_AXES = ['material', 'type', 'layout', 'color'];
 export const CONTRAST_AXES = [{ id:'ornament', label:'装饰密度', levels:{...} }, { id:'image', label:'影像参与度', ... }];
-export const WORLDS = [ /* 12 个世界，4 族 × 3 variant */ ];
+export const WORLDS = [ /* 18 个世界，6 族 × 3 variant */ ];
 export const WORLD_FAMILIES = [ { id, label, variants, worldIds } ];
-export const WORLD_ROUNDS = [ /* 4 轮计划：2 轮 lineage + 2 轮 contrast */ ];
+export const WORLD_ROUNDS = [ /* 经典 4 轮固定代表计划：2 轮 lineage + 2 轮 contrast */ ];
 export function roundPlan(roundIndex) // 1-based：{ relation, family|axis, worlds }
+export function buildWorldPoolPlan(seed) // pool：从 18 个世界里按 seed 抽 4×3=12 个，关系/多样性校验
 export function renderCandidate(world, content?) // -> 完整 HTML；content 省略时用山径书店演示文案
 export function generateRound({ brief, relationPlan, round, content }) // -> add 兼容的候选 JSON；不写文件/台账
 ```
@@ -170,16 +171,22 @@ export function generateRound({ brief, relationPlan, round, content }) // -> add
 - `lineage`（同族不同派）：同一 `family` 下的 3 个不同 `variant`。例：印刷传统里理性网格 / 旧式密排 / 粗野拼贴；油画里印象派 / 写实派 / 表现派。
 - `contrast`（对比轴三档）：同一命名 `axis` 上 `low/mid/high` 各一个，且跨 ≥2 个 `family`。例：装饰密度从极简到繁复；影像参与度从无影像到影像主导。
 
-12 个世界分 4 族（每族 3 个 variant）：印刷传统 / 手作纸品 / 图像展示 / 信息呈现。4 轮建议计划 = 2 轮 lineage + 2 轮 contrast（装饰密度、影像参与度各一轮）。
+18 个世界分 6 族（每族 3 个 variant）：印刷传统 / 手作纸品 / 图像展示 / 信息呈现 / 公共现代 / 自然印刷。`pool` 按 seed 抽 4 轮 = 2 轮 lineage + 2 轮 contrast（装饰密度、影像参与度各一轮），12 个世界不重复；默认 seed 是 `brief.runId`，`--seed` 可复现。经典 `generate` 仍用 `roundPlan` 的固定 4 轮代表计划。
 
-测试 `test/worlds.test.mjs`：12 个世界、id 唯一、每族 3 个 variant 且不重复、每族渲染互不相同且无外链、lineage 轮同族、contrast 轮档位恰好各一次且跨 ≥2 family、`roundPlan` 4 轮覆盖全部 12 个世界、渲染 HTML 无外链/无 `{{` 残留、两次渲染一致、HTML 长度上限（< 40KB）。
+archetype 池的 12 个候选会复用骨架（常 6–9 个唯一结构）；唯一性按 `archetypeId--worldId` 对计，12 个世界 token 各一次，结构差异主要靠骨架、视觉差异靠 token。需要更多结构差异时走 external skill。
+
+测试 `test/worlds.test.mjs`：18 个世界、id 唯一、每族 3 个 variant 且不重复、每族渲染互不相同且无外链、lineage 轮同族、contrast 轮档位恰好各一次且跨 ≥2 family、`buildWorldPoolPlan` 4 轮使用 12 个不同世界且同 seed 复现、`roundPlan` 4 轮覆盖 12 个代表世界、渲染 HTML 无外链/无 `{{` 残留、两次渲染一致、HTML 长度上限（< 40KB）。
 
 ## 6. CLI（Lead 实现 `shortlist.mjs`）
 
 ```
 node shortlist.mjs init --brief <brief.json> [--run-id <id>] [--out shortlist-runs]
 node shortlist.mjs generate --brief <brief.json> | --run <dir> [--writer worlds|archetype] [--round 1] [--relation lineage|contrast] [--family <id>] [--axis <id>] [--content <slots.json>] [--out candidates/rN.json] [--add]
+node shortlist.mjs pool --run <dir> [--writer worlds|archetype] [--seed <id>]
+node shortlist.mjs plan --run <dir> [--seed <id>]              # 外部 skill：4 轮计划 + data-slot 契约
+node shortlist.mjs import --run <dir> --bundle <bundle.json>   # 外部 skill：导入 12 页并组装 pool.json
 node shortlist.mjs add --run <dir> --candidates <candidates.json> [--context-token <token>]
+node shortlist.mjs likes --run <dir> --file <likes.json>
 node shortlist.mjs decide --run <dir> --round <n> --decisions <file.jsonl>
 node shortlist.mjs final --run <dir> --choice <file.jsonl>
 node shortlist.mjs report --run <dir> [--now <ISO>]
@@ -188,7 +195,10 @@ node shortlist.mjs status
 node shortlist.mjs demo [--scenario success|gap|both] [--out shortlist-runs]
 ```
 
-- `generate`：按 brief 内容槽渲染 3 个 HTML，写出可 `add` 的候选 JSON（附 `writer` / `contentHash` / `skeletonHash`）。`--writer` 省略时有骨架库则用 archetype（`archetypes/` 的完整页 + 世界 token，并按 lineage/contrast 抽签），否则 worlds（`roundPlan` 的 12 张世界卡）。不写 decide、不写台账。`--add` 交给 `add` 入库。verify 对 archetype 重算 skeletonHash 和结构签名。
+- `generate`：按 brief 内容槽渲染 3 个 HTML，写出可 `add` 的候选 JSON（附 `writer` / `contentHash` / `skeletonHash`）。`--writer` 省略时有骨架库则用 archetype（`archetypes/` 的完整页 + 世界 token，并按 lineage/contrast 抽签），否则 worlds（`roundPlan` 的 12 张代表世界卡）。不写 decide、不写台账。`--add` 交给 `add` 入库。verify 对 archetype 重算 skeletonHash 和结构签名。
+- `pool`：从 18 张世界卡 / 9 张骨架里按 seed 抽 4 轮 × 3 = 12 个候选，前两轮 lineage、后两轮 contrast，12 个世界不重复；默认 seed 是 `brief.runId`，`--seed` 可复现。写出 `pool.json`，不写 decide、不写台账；同一回合已有池时拒绝重复铺池。池内各轮 `contentHash` 必须一致。
+- `plan`：只写 `<run>/plan.json`，包含 4 轮关系计划、锁定内容槽和 `data-slot` 契约；不生成 HTML。外部 skill 的 `SKILL.md`/参考由 agent 读取，插件不执行脚本。
+- `import`：读取 `shortlist-external-import/1` bundle，校验 4×3、内容槽等于 `plan.content`、关系、HTML 互异、无外链/脚本、12 个不重复；写 `candidates/pool-rN-pX.html` 与 `pool.json`（`writer:"external"`、`skill`、`seed`、`planId`、`contentHash`）。外部池的 `verify` 额外核对来源、哈希和内容槽。
 - `add`：校验 3 个候选与关系（lineage 同族不同派 / contrast 同一轴 low/mid/high 跨≥2 family）、内容槽锁定、html 互异、html 无外链、生成 `candidates/r<n>-p<pos>.html`、更新 rounds.json、渲染 `round-<n>.html`；输出下一步。
 - `decide`：校验记录（schema/positions/每轮 ≤1 defer/理由合法），更新 state，追加台账事件 `shortlist.decisions`；pending 达 3 → 渲染 `final.html` 并提示 `final`；达到 4 轮或 12 个且**所有已生成轮次都已决策**仍未到 3 → 生成归因报告并提示不能用第 13 个。
 - `final`：**先跑一次完整性校验**（不过则拒绝）；kind=candidate → 写 `result.json`、台账 `shortlist.chosen`、提示「进入精调：用 probe.mjs 单轴 + JND」；kind=none → 先写 `shortlist.chosen` 再归因 → 写 `capability-gap.json`、台账 `capability.gap`。

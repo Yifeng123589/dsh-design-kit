@@ -223,6 +223,16 @@ export const EXTERNAL_PATTERNS = Object.freeze([
   /(?:src|href)\s*=\s*["']?\s*\/\//i,
   /url\s*\(\s*["']?\s*\/\//i,
   /\bfile:/i,
+  // 候选是静态预览：脚本、iframe、对象/嵌入、base/link 与内联事件都不允许。
+  /<script\b/i,
+  /<iframe\b/i,
+  /<object\b/i,
+  /<embed\b/i,
+  /<base\b/i,
+  /<link\b/i,
+  /\son[a-z]+\s*=/i,
+  /javascript\s*:/i,
+  /data\s*:\s*text\/html/i,
 ]);
 
 /** 校验候选输入：数量、id、world 四轴 + 关系（lineage/contrast）、html 基本卫生。 */

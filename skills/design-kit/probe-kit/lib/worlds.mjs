@@ -1,5 +1,5 @@
 /**
- * shortlist 粗选：12 张世界卡 + 受控内容渲染。
+ * shortlist 粗选：18 张世界卡 + 受控内容渲染；经典 12 张代表计划 + seed 扩展池。
  *
  * 世界不是 12 个互不相干的风格：每个世界有 family（大传统）与 variant（同族内的派别），
  * 轮次因此有两种关系形态：
@@ -123,7 +123,7 @@ function loadTemplate() {
 }
 
 /**
- * 12 个世界，按 4 轮 x 3 个分组见 WORLD_ROUNDS。
+ * 18 个世界；经典代表计划取其中 12 个，按 4 轮 x 3 个分组见 WORLD_ROUNDS。
  * decor 里的名字会渲染成 decor-<name> 类名，decorCss 里用 .decor-<name> 选择。
  */
 export const WORLDS = [
@@ -770,10 +770,319 @@ body {
 .decor-dashboard .foot { font-family: var(--font-head); font-size: 9px; }
 `,
   },
+  {
+    id: 'w-transit',
+    label: '站牌系统',
+    note: '搪瓷站牌、粗横线与路线编号',
+    family: 'civic-modern',
+    variant: '路线标识',
+    contrast: { ornament: 'mid', image: 'low' },
+    axes: {
+      material: '搪瓷站牌，丝印编号',
+      type: '无衬线',
+      layout: '网格',
+      color: '承诺',
+    },
+    tokens: {
+      BG: '#e3ded2',
+      SURFACE: '#f6f2e8',
+      INK: '#10243a',
+      MUTED: '#5a6b78',
+      ACCENT: '#0a5ca8',
+      ACCENT_INK: '#f7fbff',
+      RULE: '#c6d0d7',
+      RADIUS: '2px',
+      FONT_HEAD: '"DIN Alternate", "Arial Narrow", "PingFang SC", "Microsoft YaHei", sans-serif',
+      FONT_BODY: '"DIN Alternate", "PingFang SC", "Microsoft YaHei", sans-serif',
+    },
+    layoutClass: 'layout-grid',
+    decor: ['transit'],
+    decorCss: `
+body { background: var(--bg); }
+.decor-transit { border-top: 14px solid var(--accent); }
+.decor-transit .masthead {
+  padding: 10px 12px 12px;
+  border-bottom: 3px solid var(--ink);
+  background: linear-gradient(to bottom, var(--surface), color-mix(in srgb, var(--surface) 88%, var(--accent)));
+}
+.decor-transit .shop { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
+.decor-transit .tagline { font-size: 11px; }
+.decor-transit .shelf { padding-top: 10px; }
+.decor-transit .item { grid-template-columns: 32px minmax(0, 1fr) auto; padding: 8px 0; border-top: 2px solid var(--ink); }
+.decor-transit .item:last-child { border-bottom: 2px solid var(--ink); }
+.decor-transit .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10px;
+  font-weight: 800;
+}
+.decor-transit .book { font-size: 15px; font-weight: 700; }
+.decor-transit .meta { font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+.decor-transit .cta { width: 100%; border-radius: 2px; font-size: 13px; font-weight: 800; letter-spacing: 0.04em; }
+.decor-transit .foot { border-top: 1px solid var(--rule); padding-top: 8px; font-size: 9px; }
+`,
+  },
+  {
+    id: 'w-civic',
+    label: '市政公告',
+    note: '再生纸、红色公章与条款编号',
+    family: 'civic-modern',
+    variant: '公共告示',
+    contrast: { ornament: 'high', image: 'low' },
+    axes: {
+      material: '再生纸，红色公章',
+      type: '衬线',
+      layout: '编辑',
+      color: '克制',
+    },
+    tokens: {
+      BG: '#e7dfcf',
+      SURFACE: '#f4ecdc',
+      INK: '#211d18',
+      MUTED: '#6b5f50',
+      ACCENT: '#b3261e',
+      ACCENT_INK: '#fff4ef',
+      RULE: '#c9b99f',
+      RADIUS: '0px',
+      FONT_HEAD: '"Songti SC", "Source Han Serif SC", "Noto Serif SC", "SimSun", serif',
+      FONT_BODY: '"Songti SC", "Source Han Serif SC", "Noto Serif SC", "PingFang SC", serif',
+    },
+    layoutClass: 'layout-editorial',
+    decor: ['civic'],
+    decorCss: `
+body { background: var(--bg); }
+.decor-civic { background-image: radial-gradient(120% 80% at 10% 0%, rgb(255 250 236 / 0.75), transparent 55%); }
+.decor-civic .masthead { padding: 12px 0 12px; border-top: 6px double var(--ink); border-bottom: 1px solid var(--ink); }
+.decor-civic .shop { font-size: 32px; font-weight: 700; letter-spacing: 0.03em; }
+.decor-civic .tagline { color: var(--ink); font-size: 12px; }
+.decor-civic .item { grid-template-columns: 34px minmax(0, 1fr) auto; padding: 7px 0; border-top: 1px solid var(--rule); }
+.decor-civic .num { color: var(--accent); font-size: 10px; font-weight: 700; }
+.decor-civic .book { font-size: 14px; font-weight: 700; }
+.decor-civic .meta { font-size: 10px; }
+.decor-civic .cta { border: 2px solid var(--accent); border-radius: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 700; }
+.decor-civic .foot { border-top: 1px solid var(--ink); padding-top: 8px; font-size: 9px; }
+.decor-civic::after {
+  content: '公告';
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  transform: rotate(-12deg);
+  opacity: 0.82;
+}
+`,
+  },
+  {
+    id: 'w-terminal',
+    label: '航站楼屏',
+    note: '黑亚克力、LED 点阵与扫描线',
+    family: 'civic-modern',
+    variant: '实时屏幕',
+    contrast: { ornament: 'low', image: 'mid' },
+    axes: {
+      material: '黑亚克力，LED 点阵',
+      type: '等宽',
+      layout: '网格',
+      color: '浸染',
+    },
+    tokens: {
+      BG: '#05080a',
+      SURFACE: '#0b1114',
+      INK: '#d8ffe8',
+      MUTED: '#6f8f82',
+      ACCENT: '#b7ff3a',
+      ACCENT_INK: '#071007',
+      RULE: '#1f3a31',
+      RADIUS: '0px',
+      FONT_HEAD: '"JetBrains Mono", "IBM Plex Mono", "Courier New", "PingFang SC", monospace',
+      FONT_BODY: '"JetBrains Mono", "IBM Plex Mono", "Courier New", "PingFang SC", monospace',
+    },
+    layoutClass: 'layout-grid',
+    decor: ['terminal'],
+    decorCss: `
+body { background: var(--bg); }
+.decor-terminal {
+  border: 1px solid var(--rule);
+  background-image: repeating-linear-gradient(to bottom, rgb(183 255 58 / 0.035) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px rgb(183 255 58 / 0.08);
+}
+.decor-terminal .masthead { padding: 10px 12px; border: 1px solid var(--rule); background: rgb(183 255 58 / 0.04); }
+.decor-terminal .shop { color: var(--accent); font-size: 26px; font-weight: 600; letter-spacing: 0.02em; text-shadow: 0 0 12px rgb(183 255 58 / 0.35); }
+.decor-terminal .tagline { font-size: 11px; }
+.decor-terminal .item { border-top: 1px dashed var(--rule); }
+.decor-terminal .num { color: var(--accent); font-size: 10px; }
+.decor-terminal .book { font-size: 13px; }
+.decor-terminal .meta { font-size: 9px; }
+.decor-terminal .cta { border-radius: 0; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; }
+.decor-terminal .foot { border-top: 1px dashed var(--rule); padding-top: 8px; font-size: 9px; }
+`,
+  },
+  {
+    id: 'w-botanical',
+    label: '植物图鉴',
+    note: '棉纸、细线标本与手写学名',
+    family: 'organic-print',
+    variant: '标本图鉴',
+    contrast: { ornament: 'high', image: 'mid' },
+    axes: {
+      material: '棉纸，铜版压印',
+      type: '衬线',
+      layout: '卡片',
+      color: '克制',
+    },
+    tokens: {
+      BG: '#dfe3d4',
+      SURFACE: '#f6f5ec',
+      INK: '#26321f',
+      MUTED: '#67715a',
+      ACCENT: '#4f6b3a',
+      ACCENT_INK: '#f7f6ec',
+      RULE: '#c6cdb6',
+      RADIUS: '4px',
+      FONT_HEAD: '"Iowan Old Style", "Palatino Linotype", "Songti SC", "SimSun", serif',
+      FONT_BODY: '"Iowan Old Style", "Songti SC", "PingFang SC", serif',
+    },
+    layoutClass: 'layout-card',
+    decor: ['botanical'],
+    decorCss: `
+body { background: var(--bg); }
+.decor-botanical {
+  background-image:
+    radial-gradient(circle at 88% 12%, rgb(79 107 58 / 0.14), transparent 45%),
+    repeating-linear-gradient(115deg, rgb(79 107 58 / 0.05) 0 1px, transparent 1px 14px);
+}
+.decor-botanical .masthead { align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--rule); text-align: center; }
+.decor-botanical .shop { font-size: 30px; font-weight: 500; letter-spacing: 0.04em; }
+.decor-botanical .tagline { font-size: 12px; }
+.decor-botanical .item { grid-template-columns: 26px minmax(0, 1fr) auto; padding: 7px 0; border-top: 1px solid var(--rule); }
+.decor-botanical .num { color: var(--accent); font-size: 10px; }
+.decor-botanical .book { font-size: 13px; font-weight: 500; }
+.decor-botanical .meta { font-size: 10px; }
+.decor-botanical .cta { border: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 500; }
+.decor-botanical .foot { text-align: center; font-size: 9px; }
+`,
+  },
+  {
+    id: 'w-fieldnotes',
+    label: '田野笔记',
+    note: '牛皮纸、铅笔批注与折角',
+    family: 'organic-print',
+    variant: '田野记录',
+    contrast: { ornament: 'mid', image: 'low' },
+    axes: {
+      material: '牛皮纸，铅笔批注',
+      type: '手写',
+      layout: '堆叠',
+      color: '承诺',
+    },
+    tokens: {
+      BG: '#cbb894',
+      SURFACE: '#f1e4c8',
+      INK: '#2c2a20',
+      MUTED: '#6d624a',
+      ACCENT: '#7a3f2a',
+      ACCENT_INK: '#fbf3e2',
+      RULE: '#d6c19b',
+      RADIUS: '2px',
+      FONT_HEAD: '"Bradley Hand", "Chalkboard SE", "Kaiti SC", "KaiTi", "Comic Sans MS", cursive',
+      FONT_BODY: '"Bradley Hand", "Chalkboard SE", "Kaiti SC", "KaiTi", "Comic Sans MS", cursive',
+    },
+    layoutClass: 'layout-stack',
+    decor: ['fieldnotes'],
+    decorCss: `
+body {
+  background-color: var(--bg);
+  background-image: repeating-linear-gradient(8deg, rgb(255 255 255 / 0.12) 0 2px, transparent 2px 26px);
+}
+.decor-fieldnotes {
+  transform: rotate(0.6deg);
+  border: 1px solid var(--rule);
+  box-shadow: 0 12px 24px rgb(62 48 24 / 0.2);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, rgb(122 63 42 / 0.12) 27px 28px);
+}
+.decor-fieldnotes .masthead { align-items: flex-start; text-align: left; }
+.decor-fieldnotes .shop { font-size: 34px; font-weight: 600; }
+.decor-fieldnotes .tagline { color: var(--accent); font-size: 13px; }
+.decor-fieldnotes .item { grid-template-columns: 1.8em 1fr; justify-items: start; gap: 0 6px; padding: 5px 0; border-top: 1px dashed var(--rule); }
+.decor-fieldnotes .num { color: var(--accent); font-size: 11px; }
+.decor-fieldnotes .book { font-size: 15px; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.decor-fieldnotes .meta { grid-column: 2; font-size: 11px; }
+.decor-fieldnotes .cta { border-radius: 0; font-size: 14px; font-weight: 700; }
+.decor-fieldnotes .foot { font-size: 9px; }
+`,
+  },
+  {
+    id: 'w-archive-box',
+    label: '档案盒',
+    note: '瓦楞纸、标签页与打孔索引',
+    family: 'organic-print',
+    variant: '瓦楞索引',
+    contrast: { ornament: 'low', image: 'low' },
+    axes: {
+      material: '瓦楞纸，索引标签',
+      type: '等宽',
+      layout: '卡片',
+      color: '浸染',
+    },
+    tokens: {
+      BG: '#d9cdb5',
+      SURFACE: '#f0e6cf',
+      INK: '#2b2a24',
+      MUTED: '#6b6353',
+      ACCENT: '#2f5d7c',
+      ACCENT_INK: '#eef6fb',
+      RULE: '#c3b495',
+      RADIUS: '0px',
+      FONT_HEAD: '"JetBrains Mono", "Courier New", "PingFang SC", monospace',
+      FONT_BODY: '"JetBrains Mono", "Courier New", "PingFang SC", monospace',
+    },
+    layoutClass: 'layout-card',
+    decor: ['archive-box'],
+    decorCss: `
+body { background: var(--bg); }
+.decor-archive-box {
+  border: 1px solid var(--rule);
+  box-shadow: 0 14px 30px rgb(40 32 18 / 0.2);
+}
+.decor-archive-box::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 18px;
+  width: 118px;
+  height: 14px;
+  background: var(--accent);
+  opacity: 0.82;
+}
+.decor-archive-box .masthead { padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+.decor-archive-box .shop { font-size: 26px; font-weight: 600; }
+.decor-archive-box .tagline { font-size: 11px; }
+.decor-archive-box .item { grid-template-columns: 2.2em minmax(0, 1fr) auto; padding: 6px 0; border-top: 1px dashed var(--rule); }
+.decor-archive-box .num { color: var(--accent); font-size: 10px; }
+.decor-archive-box .book { font-size: 13px; }
+.decor-archive-box .meta { font-size: 9px; }
+.decor-archive-box .cta { border-radius: 0; background: var(--accent); color: var(--accent-ink); font-size: 12px; }
+.decor-archive-box .foot { border-top: 1px solid var(--rule); padding-top: 8px; font-size: 9px; }
+`,
+  },
 ];
 
 /**
- * 4 个大传统（family），每个 3 个同族派别（variant）。
+ * 6 个大传统（family），每个 3 个同族派别（variant）。
  * variants 与 worldIds 按相同顺序对应；world.family / world.variant 必须与这里一致。
  */
 export const WORLD_FAMILIES = [
@@ -800,6 +1109,18 @@ export const WORLD_FAMILIES = [
     label: '信息呈现',
     variants: ['工程图纸', '实时读数', '展签说明'],
     worldIds: ['w-blueprint', 'w-dashboard', 'w-museum'],
+  },
+  {
+    id: 'civic-modern',
+    label: '公共现代',
+    variants: ['路线标识', '公共告示', '实时屏幕'],
+    worldIds: ['w-transit', 'w-civic', 'w-terminal'],
+  },
+  {
+    id: 'organic-print',
+    label: '自然印刷',
+    variants: ['标本图鉴', '田野记录', '瓦楞索引'],
+    worldIds: ['w-botanical', 'w-fieldnotes', 'w-archive-box'],
   },
 ];
 
@@ -915,6 +1236,139 @@ export function assertRoundDiversity(roundWorlds) {
     }
   }
   return true;
+}
+
+/** 稳定字符串种子：同一 seed 复现同一批；不同 runId 默认得到不同组合。 */
+function seedNumber(text) {
+  return createHash('sha256').update(String(text)).digest().readUInt32LE(0);
+}
+
+/** 可复现的 32-bit PRNG（mulberry32），返回 [0, 1)。 */
+export function createSeededRng(seed) {
+  let state = seedNumber(seed);
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 用给定 rng 做 Fisher-Yates，不改原数组。 */
+export function shuffleWith(items, rng) {
+  const out = items.slice();
+  for (let index = out.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(rng() * (index + 1));
+    [out[index], out[swap]] = [out[swap], out[index]];
+  }
+  return out;
+}
+
+function pickContrastWorlds(axis, used, rng) {
+  const groups = { low: [], mid: [], high: [] };
+  for (const world of WORLDS) {
+    if (used.has(world.id)) continue;
+    const level = world.contrast?.[axis.id];
+    if (level === 'low' || level === 'mid' || level === 'high') groups[level].push(world);
+  }
+  const combos = [];
+  for (const low of groups.low) {
+    for (const mid of groups.mid) {
+      for (const high of groups.high) {
+        const picks = [low, mid, high];
+        if (new Set(picks.map((world) => world.family)).size < 2) continue;
+        try {
+          assertRoundDiversity(picks);
+        } catch {
+          continue;
+        }
+        combos.push(picks);
+      }
+    }
+  }
+  if (combos.length === 0) return null;
+  return shuffleWith(combos, rng)[0];
+}
+
+/** 校验池计划：4 轮 × 3、12 个世界不重复、每轮关系成立、两两至少 3 轴不同。 */
+export function assertWorldPoolPlan(plans) {
+  if (!Array.isArray(plans) || plans.length !== 4) throw new Error('世界池计划必须是 4 轮');
+  const ids = new Set();
+  for (const [index, plan] of plans.entries()) {
+    if (!plan || !Array.isArray(plan.worlds) || plan.worlds.length !== 3) {
+      throw new Error(`第 ${index + 1} 轮世界池计划必须恰好 3 个世界`);
+    }
+    for (const world of plan.worlds) {
+      if (ids.has(world.id)) throw new Error(`世界池计划重复使用世界：${world.id}`);
+      ids.add(world.id);
+    }
+    if (plan.relation === 'lineage') {
+      if (!plan.worlds.every((world) => world.family === plan.family)) {
+        throw new Error(`第 ${index + 1} 轮 lineage 必须同族`);
+      }
+      if (new Set(plan.worlds.map((world) => world.variant)).size !== 3) {
+        throw new Error(`第 ${index + 1} 轮 lineage 的 variant 必须互不相同`);
+      }
+    } else if (plan.relation === 'contrast') {
+      const levels = plan.worlds.map((world) => world.contrast?.[plan.axis]);
+      if (levels.slice().sort().join(',') !== 'high,low,mid') {
+        throw new Error(`第 ${index + 1} 轮 contrast 的档位必须恰好覆盖 low/mid/high`);
+      }
+      if (new Set(plan.worlds.map((world) => world.family)).size < 2) {
+        throw new Error(`第 ${index + 1} 轮 contrast 必须跨至少 2 个 family`);
+      }
+    } else {
+      throw new Error(`第 ${index + 1} 轮关系必须是 lineage 或 contrast`);
+    }
+    assertRoundDiversity(plan.worlds);
+  }
+  if (ids.size !== 12) throw new Error('世界池计划必须恰好使用 12 个不同世界');
+  return true;
+}
+
+/**
+ * 从扩展后的世界库按 seed 抽 4 轮 × 3 = 12 个世界。
+ * 保持协议关系：前两轮 lineage，后两轮 contrast；12 个世界不重复。
+ * 同 seed 可复现；不同 runId（默认 seed）得到不同组合。
+ */
+function attemptWorldPoolPlan(rng) {
+  const familyPools = new Map(
+    WORLD_FAMILIES.map((family) => [
+      family.id,
+      shuffleWith(WORLDS.filter((world) => world.family === family.id), rng),
+    ]),
+  );
+  const eligible = shuffleWith(
+    WORLD_FAMILIES.filter((family) => (familyPools.get(family.id) ?? []).length >= 3),
+    rng,
+  );
+  if (eligible.length < 2) return null;
+  const plans = [];
+  const used = new Set();
+  for (const family of eligible.slice(0, 2)) {
+    const picks = familyPools.get(family.id).slice(0, 3);
+    plans.push({ relation: 'lineage', family: family.id, familyLabel: family.label, worlds: picks });
+    for (const world of picks) used.add(world.id);
+  }
+  const axes = shuffleWith(CONTRAST_AXES, rng);
+  for (const axis of axes.slice(0, 2)) {
+    const picks = pickContrastWorlds(axis, used, rng);
+    if (picks === null) return null;
+    plans.push({ relation: 'contrast', axis: axis.id, axisLabel: axis.label, worlds: picks });
+    for (const world of picks) used.add(world.id);
+  }
+  return plans;
+}
+
+export function buildWorldPoolPlan(seed = 'worlds') {
+  const rng = createSeededRng(seed);
+  for (let attempt = 0; attempt < 500; attempt += 1) {
+    const plans = attemptWorldPoolPlan(rng);
+    if (plans === null) continue;
+    assertWorldPoolPlan(plans);
+    return plans;
+  }
+  throw new Error('无法从世界库排出有效的 4 轮计划');
 }
 
 function sha256Short(text, length = 16) {
@@ -1138,13 +1592,34 @@ export function readContentSlots(html) {
     const found = pattern.exec(html);
     return found ? found[1] : null;
   };
-  const title = grab(/<title>([^<]*)<\/title>/);
-  const shop = grab(/<h1 class="shop">([^<]*)<\/h1>/);
-  const subtitle = grab(/<p class="tagline">([^<]*)<\/p>/);
-  const books = [...html.matchAll(/<span class="book">([^<]*)<\/span>/g)].map((found) => found[1]);
-  const metas = [...html.matchAll(/<span class="meta">([^<]*)<\/span>/g)].map((found) => found[1]);
-  const cta = grab(/<button class="cta"[^>]*>([^<]*)<\/button>/);
-  const foot = grab(/<p class="foot">([^<]*)<\/p>/);
+  const slotText = (name) => {
+    const pattern = new RegExp(
+      `<([a-z][a-z0-9-]*)\\b[^>]*\\bdata-slot=["']${name}["'][^>]*>([^<]*)<\\/\\1>`,
+      'i',
+    );
+    const found = pattern.exec(html);
+    return found ? found[2] : null;
+  };
+  const slotAll = (name) => {
+    const pattern = new RegExp(
+      `<([a-z][a-z0-9-]*)\\b[^>]*\\bdata-slot=["']${name}["'][^>]*>([^<]*)<\\/\\1>`,
+      'gi',
+    );
+    return [...html.matchAll(pattern)].map((found) => found[2]);
+  };
+  const title = grab(/<title>([^<]*)<\/title>/i);
+  const shop = slotText('title') ?? grab(/<h1 class="shop">([^<]*)<\/h1>/i);
+  const subtitle = slotText('subtitle') ?? grab(/<p class="tagline">([^<]*)<\/p>/i);
+  const slotBooks = slotAll('bullet');
+  const slotMetas = slotAll('meta');
+  const books = slotBooks.length > 0
+    ? slotBooks
+    : [...html.matchAll(/<span class="book">([^<]*)<\/span>/gi)].map((found) => found[1]);
+  const metas = slotMetas.length > 0
+    ? slotMetas
+    : [...html.matchAll(/<span class="meta">([^<]*)<\/span>/gi)].map((found) => found[1]);
+  const cta = slotText('cta') ?? grab(/<button class="cta"[^>]*>([^<]*)<\/button>/i);
+  const foot = slotText('foot') ?? grab(/<p class="foot">([^<]*)<\/p>/i);
   if ([title, shop, subtitle, cta, foot].some((value) => value === null || value === '')) return null;
   if (title !== shop) return null;
   if (books.length !== 3 || metas.length !== 3) return null;

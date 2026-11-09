@@ -2,7 +2,7 @@
 
 统一设计交付插件。把原来的 `dsh-ui-craft`（造界面）与 `dsh-probe-kit`（选方向 / 调参数）合成**一个技能入口 + `/dkit` 命令 + 10 个工具**，装一次就能覆盖从「定方向」到「验收界面」、再到「质检/导出/渲染 PPTX」的整条设计交付链路。
 
-- 版本：`0.1.10`
+- 版本：`0.1.13`
 - 技能：`design-kit`（1 个）
 - 命令：`/dkit`（1 个），把对话转成 design-kit 流程；可带需求
 - 工具：`design_tokens` / `design_lint` / `design_capture` / `probe_shortlist` / `probe_shortlist_preview` / `probe_shortlist_ui_action` / `probe_measure` / `deck_check` / `deck_export` / `deck_render`
@@ -177,7 +177,9 @@ deck_render({ "pptx": "projects/career-deck_20261102/exports/xxx.pptx" })
 
 ### 4.2 粗选：有关系的 3 个，删或待定
 
-候选必须先 `generate` 再 `add`。没有候选文件时不要说已经有三个方向，也不要手写三份 HTML。brief 收成一份内容槽（可写在 `content` 里；省略则按 title / prompt 确定性截取），三页共用。默认把这槽填进三张结构不同的骨架，再套世界的颜色和字体；`writer: "worlds"` 才回到 12 张世界卡。自由生成模式 B 未做。
+候选默认走 `init → pool → preview`：`pool` 从 18 张世界卡 / 9 张骨架里按 seed 抽 12 张，工作台只亮 3 张。经典三轮才走 `generate → add`；没有候选文件时不要说已经有三个方向，也不要手写三份 HTML。brief 收成一份内容槽（可写在 `content` 里；省略则按 title / prompt 确定性截取），三页共用。默认把这槽填进三张结构不同的骨架，再套世界的颜色和字体；`writer: "worlds"` 才走世界卡路径。自由生成模式 B 未做。
+
+外部 skill 路线（0.1.13）：`probe_shortlist plan --run` 写出 4 轮计划与 `data-slot` 内容契约；agent 只读该 skill 的 `SKILL.md`/`references/`，按计划每轮生成 3 页，写成 `shortlist-external-import/1` bundle，再 `probe_shortlist import --run --bundle`。`import` 校验内容槽、关系、HTML 互异、无外链/脚本、12 个不重复，并组装 `pool.json`；后续 preview/final 与模板池一致。插件不执行外部 skill 的脚本。
 
 `add` 会拒绝：没有关系、内容槽不一致、HTML 相同、或带外链。先写 brief（只有 `title` / `prompt` 必填；`cap` 固定 12，填了也不能放宽）：
 

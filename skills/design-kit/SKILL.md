@@ -49,27 +49,27 @@ license: MIT
 
 ## B. 粗选（方向选择）
 
-用 `probe_shortlist`。**默认先 `generate`，再 `add`，再 `preview`。** 没有 `candidates/rN.json`（或已经 add 进回合）之前，禁止说「已经有三个方向」；不要手写三份 HTML 充数。
+用 `probe_shortlist`。**默认先 `init`，再 `pool`，再 `preview`，走滑动窗/特征袋流水线。** `pool` 会从 18 张世界卡 / 9 张骨架里按 seed 抽 12 个候选，工作台只亮 3 张；删除或路过自动补位，不必每轮待定。默认 seed 是 `runId`，新回合会换组合；传 `seed` 可复现同一批。只有用户明确要「经典三轮」时才走 `generate → add → decide`。没有候选文件（或已经 add 进回合）之前，禁止说「已经有三个方向」；不要手写三份 HTML 充数。
 
-`generate` 把 brief 收成一份内容槽（title / subtitle / 3 条要点 / cta / foot）。三页文案相同。默认 writer 是 `archetype`：按 lineage / contrast 从 [probe-kit/archetypes/](probe-kit/archetypes/index.json) 抽三张结构不同的完整页，再套世界卡的颜色和字体。骨架库缺失或为空时回落 `worlds`（12 张世界卡，同一骨架只换视觉）。要世界卡就传 `writer: "worlds"`。`generate` 不写 decide、不写台账；只有 `add` 才落账。
+`generate` 把 brief 收成一份内容槽（title / subtitle / 3 条要点 / cta / foot）。三页文案相同。默认 writer 是 `archetype`：按 lineage / contrast 从 [probe-kit/archetypes/](probe-kit/archetypes/index.json) 抽三张结构不同的完整页，再套世界卡的颜色和字体。骨架库缺失或为空时回落 `worlds`（18 张世界卡，同一骨架只换视觉）。要世界卡就传 `writer: "worlds"`。`generate` 不写 decide、不写台账；只有 `add` 才落账。经典 `generate` 仍用固定的 4 轮代表计划；扩展抽取只发生在 `pool`。
 
 反模板纪律在 [probe-kit/archetypes/DISCIPLINE.md](probe-kit/archetypes/DISCIPLINE.md)。那是给骨架用的拒绝条件，不是打分引擎，也不内置外部 skill。
 
 每轮恰好 3 个候选，且**候选之间必须声明关系**。入库闸门会拒收：内容槽不一致、HTML 完全相同、带外链、关系不成立。archetype 还会拒收对不上的 `skeletonHash` 或和骨架文件不一样的结构。
 
-- `lineage`：同属一个 `family`，三个 `variant` 各不相同。骨架族是 `stage`（开场舞台）和 `press`（印刷硬边）。世界卡的族要加 `writer: "worlds"` 才走那 12 张卡。
+- `lineage`：同属一个 `family`，三个 `variant` 各不相同。骨架族是 `stage`（开场舞台）和 `press`（印刷硬边）。世界卡的族要加 `writer: "worlds"` 才走那 18 张卡。
 - `contrast`：同一 `axis` 上 low / mid / high，且跨 ≥2 个 `family`。轴是 `ornament` 和 `image`。
 
 ```jsonc
 probe_shortlist({ "command": "init", "brief": "brief.json" })
-probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "add": true, "contextToken": "fresh-a" })
-probe_shortlist({ "command": "generate", "run": "shortlist-runs/<id>", "round": 1, "writer": "worlds", "add": true, "contextToken": "fresh-a" })
+probe_shortlist({ "command": "pool", "run": "shortlist-runs/<id>" })            // 默认按 runId 抽 12 张
+probe_shortlist({ "command": "pool", "run": "shortlist-runs/<id>", "seed": "batch-b" }) // 指定 seed 可复现/换一批
 probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
 ```
 
 ### 对话内三栏预览（默认体验）
 
-`generate` + `add` 之后**先不要**让用户去浏览器：调用
+`pool`（默认）或经典 `generate` + `add` 之后**先不要**让用户去浏览器：调用
 
 ```jsonc
 probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
@@ -77,7 +77,36 @@ probe_shortlist_preview({ "run": "shortlist-runs/<id>" })
 
 DSH 会打开 **Design Kit 工作台**（`shell.overlay`）。对话里只留「已打开」轻条，三栏卡在浮层里。盲性：不显示世界名/轴值。**iframe 是 `sandbox=""` 静态预览、不执行脚本**；需要点击/动效等交互时，改走外开 round 页流程。
 
-流水线（推荐）：`probe_shortlist` 的 `pool` 先把最多 12 个候选预生成进池。工作台只亮 3 张。删除或路过后这张消失，池里下一张补进窗口，**不必每轮先待定**。整页收藏最多 3 张。每张卡还可以「喜欢」或「收藏特征」（字体 / 配色 / 版式 / 图形），已删除的候选也能收藏特征。这些写入 `likes.json`（`shortlist-likes/1`），不占 12 的名额。下一轮 `generate` 会把 `likedTraits` 抄进候选 JSON 和 stdout，**不改 HTML**，也不写 decide / 台账。终选：短名单至少 1 张，或声明一句底稿且特征袋至少 1 条；特征袋空且没有短名单会被拒绝。
+默认流水线：`probe_shortlist` 的 `pool` 从扩展库按 seed 抽 12 个候选预生成进池。工作台只亮 3 张。删除或路过后这张消失，池里下一张补进窗口，**不必每轮先待定**。整页收藏最多 3 张。每张卡还可以「喜欢」或「收藏特征」（字体 / 配色 / 版式 / 图形），已删除的候选也能收藏特征。这些写入 `likes.json`（`shortlist-likes/1`），不占 12 的名额。下一轮 `generate` 会把 `likedTraits` 抄进候选 JSON 和 stdout，**不改 HTML**，也不写 decide / 台账。终选：短名单至少 1 张，或声明一句底稿且特征袋至少 1 条；特征袋空且没有短名单会被拒绝。池耗尽后要换一批，就开新回合（新 runId 默认新 seed）；同一回合不能重复 `pool`。首次铺池时可用 `seed` 指定/复现组合。
+
+### 外部 skill 生成（plan → import）
+
+如果用户要“用某个 GitHub skill 生成方向”，不要继续套世界卡/骨架。先读该 skill 的 `SKILL.md` 和 `references/`（只读，不执行脚本），然后：
+
+```jsonc
+probe_shortlist({ "command": "plan", "run": "shortlist-runs/<id>", "seed": "batch-a" })
+```
+
+`plan` 写出 `<run>/plan.json`：4 轮（2 轮 lineage + 2 轮 contrast）、锁定的内容槽、`data-slot` 内容契约。按计划每轮生成 3 个完整 HTML（**不要生成 12 张再硬凑关系**），然后写 import bundle：
+
+```jsonc
+{
+  "schema": "shortlist-external-import/1",
+  "writer": "external",
+  "skill": { "id": "…", "source": "…", "license": "MIT", "promptHash": "…" },
+  "rounds": [
+    { "round": 1, "relation": { "relation": "lineage", "family": "…" }, "candidates": [
+      { "id": "…", "world": { "family": "…", "variant": "…", "contrast": { "ornament": "low", "image": "low" }, "axes": { "material": "…", "type": "…", "layout": "…", "color": "…" } }, "html": "<!doctype html>…" }
+    ] }
+  ]
+}
+```
+
+```jsonc
+probe_shortlist({ "command": "import", "run": "shortlist-runs/<id>", "bundle": "bundle.json" })
+```
+
+`import` 会校验：4 轮 × 3、内容槽等于 `plan.content`、关系成立、HTML 互异、无外链/脚本、12 个不重复；通过后组装 `pool.json`，后续 preview/final 与模板池完全一样。页面内容槽用 `data-slot="title|subtitle|bullet|meta|cta|foot"` 或现有 class；外部池的 `verify` 会额外核对 `skill.id/source/license`、`contentHash` 与 12 页哈希。
 
 删除候选后可以补一条**可选文本理由**；终选“都不行”也可以补。它是补充说明，不替代固定 reason chip，也不能把用户自述当成量化证据；服务端会 trim 到 200 字符并写进决策/选择记录。
 
@@ -180,7 +209,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 - `ui-craft/templates/DESIGN.md`：交付文档模板。
 - `probe-kit/PROTOCOL-V0.2.md`：代理/授权/判定边界与暂缓项。
 - `probe-kit/SPEC.md`、`probe-kit/SHORTLIST-SPEC.md`：协议与粗选条款。
-- `probe-kit/archetypes/DISCIPLINE.md`：骨架反模板纪律。`NOTICE.md` 记录来源；当前五张骨架没有 MIT 派生代码。
+- `probe-kit/archetypes/DISCIPLINE.md`：骨架反模板纪律。`NOTICE.md` 记录来源；当前九张骨架没有 MIT 派生代码。
 
 ## 汇报格式
 
@@ -192,7 +221,7 @@ node probe-kit/probe.mjs <demo|build|append|review|apply> ...
 ## 诚实边界
 
 - `design_capture` 在无浏览器环境只能生成审阅页；不能替代人工目检。
-- 粗选的关系标签、内容槽锁定、HTML 互异和骨架哈希是工具能查的；「是否真的同族/真的相反」仍需人复核。archetype 换的是页面结构，再套世界的颜色和字体；`writer: "worlds"` 仍只换 12 张世界卡的视觉。自由生成没有做。
+- 粗选的关系标签、内容槽锁定、HTML 互异和骨架哈希是工具能查的；「是否真的同族/真的相反」仍需人复核。`pool` 从 18 张世界卡 / 9 张骨架里按 seed 抽 12 张，archetype 换页面结构再套世界 token，`writer: "worlds"` 换世界卡的视觉。**archetype 池会复用骨架**（常 6–9 个唯一结构），12 个候选的唯一性按 `archetypeId--worldId` 对计，主要靠 world token 换肤；要更多结构差异走 external skill。自由生成没有做；抽到的 12 张仍需人工目检。
 - 删除理由是用户点的 chip，不是量化测量；能力类归因只做页面事实核查（支持/弱）。
 - 精调的 JND 部分来自单场景/单评审人；r5/r6 的 JND 是估值，结论按弱证据处理。
 - `deck_*` 只做质检/导出/渲染，**不生成内容**；需要 ppt-master + Python，渲染还需要 DSH 的 LibreOffice Kit。找不到依赖时工具返回中文原因，按 deck-handoff 手工兜底。

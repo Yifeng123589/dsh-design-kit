@@ -1,8 +1,8 @@
 # NOTICE
 
-本目录五个骨架（`hero-centered`、`hero-split`、`editorial`、`brutal-cards`、`minimal-band`）是本仓原创的完整 HTML。没有复制社区页面，也没有搬 MIT 模板的代码。
+本目录九个骨架（`hero-centered`、`hero-split`、`editorial`、`brutal-cards`、`minimal-band`、`hero-offset`、`minimal-list`、`editorial-index`、`poster-stack`）是本仓原创的完整 HTML。没有复制社区页面，也没有搬 MIT 模板的代码。
 
-结构想法是常见版式的改写：居中首屏、左右对开、单栏刊物、硬边分卡、一条反色横带。想法不受版权保护；这里的标记、样式和组合是新写的。
+结构想法是常见版式的改写：居中首屏、左右对开、单栏刊物、硬边分卡、一条反色横带、偏移首屏、单列清单、索引刊物、三段堆叠。想法不受版权保护；这里的标记、样式和组合是新写的。
 
 若以后有骨架在结构上派生于某份 MIT 作品，在本文件追加一条，写明：
 

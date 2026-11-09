@@ -73,6 +73,62 @@
       "license": "MIT",
       "sourceNote": "本仓原创改写的单带留白。标题只占一条反色横带。没有复制外部页面。",
       "skeletonHash": "6dcee6ec9d1b62a7"
+    },
+    {
+      "id": "hero-offset",
+      "file": "hero-offset.html",
+      "label": "偏移开场",
+      "family": "stage",
+      "familyLabel": "开场舞台",
+      "variant": "偏移开场",
+      "axisTags": ["ornament:low", "image:mid"],
+      "contrast": { "ornament": "low", "image": "mid" },
+      "layout": "偏移首屏",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的偏移首屏。色面偏离轴心，不承载图片。没有复制外部页面。",
+      "skeletonHash": "0121efd88ab63662"
+    },
+    {
+      "id": "minimal-list",
+      "file": "minimal-list.html",
+      "label": "极简清单",
+      "family": "stage",
+      "familyLabel": "开场舞台",
+      "variant": "极简清单",
+      "axisTags": ["ornament:low", "image:low"],
+      "contrast": { "ornament": "low", "image": "low" },
+      "layout": "单列清单",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的单列清单。大编号与发丝线承担层级，没有卡片。没有复制外部页面。",
+      "skeletonHash": "11204c1bd597a392"
+    },
+    {
+      "id": "editorial-index",
+      "file": "editorial-index.html",
+      "label": "索引刊物",
+      "family": "press",
+      "familyLabel": "印刷硬边",
+      "variant": "索引刊物",
+      "axisTags": ["ornament:mid", "image:low"],
+      "contrast": { "ornament": "mid", "image": "low" },
+      "layout": "索引通栏",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的索引刊物。左侧索引栏只放编号与短标签。没有复制外部页面。",
+      "skeletonHash": "f46518057c6a652f"
+    },
+    {
+      "id": "poster-stack",
+      "file": "poster-stack.html",
+      "label": "堆叠海报",
+      "family": "press",
+      "familyLabel": "印刷硬边",
+      "variant": "堆叠海报",
+      "axisTags": ["ornament:high", "image:high"],
+      "contrast": { "ornament": "high", "image": "high" },
+      "layout": "三段堆叠",
+      "license": "MIT",
+      "sourceNote": "本仓原创改写的三段堆叠。三条色带承担结构，没有卡片。没有复制外部页面。",
+      "skeletonHash": "3c032a04c344e4e9"
     }
   ]
 }
